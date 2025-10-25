@@ -128,18 +128,37 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     gr.Markdown("### 🖱️ Click pe harta statică")
     click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
     click_output = gr.Textbox(label="Coordonate click", interactive=False)
+    # BOUNDING BOX România
+    lat_max = 48.27
+    lat_min = 43.63
+    lon_min = 20.26
+    lon_max = 29.65
+
+    # Event click pe hartă statică
     def handle_click(evt: gr.SelectData):
         if evt is None:
             return "No click detected"
 
-        # evt.index conține coordonatele pixel (x_px, y_px)
-        x_px, y_px = evt.index
+        x_px, y_px = evt.index  # coordonate pixel
 
         img = Image.open("assets/harta_romaniei.jpg")
-        x = x_px / img.width
-        y = y_px / img.height
+        w, h = img.size
 
-        return on_image_click(x, y)
+        # transformare în coordonate normalizate
+        x = x_px / w
+        y = y_px / h
+
+        lat_offset = -0.05   # ca să scazi 0.2 grade din latitudine
+        lon_offset = -1.1   # ca să scazi 0.6 grade din longitudine
+
+        lat = lat_max - y * (lat_max - lat_min) + lat_offset
+        lon = lon_min + x * (lon_max - lon_min) + lon_offset
+
+        return f"""
+    Pixel: ({x_px}, {y_px})
+    Norm: ({x:.4f}, {y:.4f})
+    Lat/Lon: {lat:.5f}, {lon:.5f}
+    """
 
     click_img.select(
         fn=handle_click,
