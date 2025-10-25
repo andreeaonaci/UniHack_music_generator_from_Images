@@ -3,6 +3,7 @@ import urllib.request
 import urllib.parse
 import re
 from bs4 import BeautifulSoup
+from random import choice
 
 DATASET_XML = "datasets/dataset.xml"
 
@@ -132,7 +133,6 @@ def load_monuments():
 
     return monuments
 
-
 def enrich_all():
     """Enrich: iterează peste toate monumentele, completează din Wikipedia și salvează în XML."""
     monuments = load_monuments()
@@ -143,6 +143,15 @@ def enrich_all():
         updated.append(m)
     save_monuments(updated)
 
+def match_monument_by_name(name: str):
+    """Caută un monument după nume (caută substring, case-insensitive)"""
+    name = name.lower()
+    list_monuments = load_monuments()
+    for m in list_monuments:
+        if name in m["nume"].lower():
+            return m
+    # fallback → dacă nu găsește, returnează un monument aleator
+    return choice(list_monuments)
 
 # Test rapid când rulezi direct
 if __name__ == "__main__":
@@ -150,7 +159,7 @@ if __name__ == "__main__":
     enrich_all()
 
     monuments = load_monuments()
-    for m in monuments[:5]:
+    for m in monuments[:2]:
         print("\n--------------------------------")
         print(f"Nume: {m['nume']}")
         print(f"Localitate: {m['localitate']}")
