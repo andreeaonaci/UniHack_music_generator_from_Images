@@ -102,15 +102,9 @@ def process_monument_ui(monument_name):
 
 # === Coordonate click pe imagine statică ===
 def on_image_click(x, y):
-    # x, y sunt normalizate (0-1) deja
-    if isinstance(x, np.ndarray):
-        x = float(x.flatten()[0])
-    if isinstance(y, np.ndarray):
-        y = float(y.flatten()[0])
     img = Image.open("assets/harta_romaniei.jpg")
     px = x * img.width
     py = y * img.height
-    print(f"[CLICK] Pixels: ({px:.1f}, {py:.1f}) | Normalized: ({x:.3f}, {y:.3f})")
     return f"Pixels: ({px:.1f}, {py:.1f}) | Normalized: ({x:.3f}, {y:.3f})"
 
 # === Interfață Gradio ===
@@ -134,7 +128,25 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     gr.Markdown("### 🖱️ Click pe harta statică")
     click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
     click_output = gr.Textbox(label="Coordonate click", interactive=False)
-    click_img.select(fn=on_image_click, inputs=[click_img, click_img], outputs=[click_output])
+    def handle_click(evt: gr.SelectData):
+        if evt is None:
+            return "No click detected"
+
+        # evt.index conține coordonatele pixel (x_px, y_px)
+        x_px, y_px = evt.index
+
+        img = Image.open("assets/harta_romaniei.jpg")
+        x = x_px / img.width
+        y = y_px / img.height
+
+        return on_image_click(x, y)
+
+    click_img.select(
+        fn=handle_click,
+        inputs=None,
+        outputs=[click_output]
+    )
+
 
     generate_btn.click(
         fn=process_monument_ui,
@@ -143,7 +155,11 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     )
     click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
     click_output = gr.Textbox(label="Coordonate click", interactive=False)
-    click_img.select(fn=on_image_click, inputs=[click_img, click_img], outputs=[click_output])
+    click_img.select(
+        fn=handle_click,
+        inputs=None,
+        outputs=[click_output]
+    )
 
 
     gr.HTML(js_bridge)
