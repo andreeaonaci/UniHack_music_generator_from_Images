@@ -4,3 +4,4 @@ transformers
 Pillow
 soundfile
 torchaudio
+wikipedia
