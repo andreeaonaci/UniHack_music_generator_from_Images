@@ -2,6 +2,7 @@ import gradio as gr
 from modules.captioner import generate_caption
 from modules.music_generator import generate_music
 from datasets.monuments import load_monuments, match_monument_by_name
+import json 
 
 def build_markers_json():
     monuments = load_monuments()
@@ -44,7 +45,7 @@ def process_monument(monument_name="Bran"):
 
 markers_json = build_markers_json()
 monuments_list = [m["nume"] for m in load_monuments()]
-
+imgHtml = ""
 map_html = f"""
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <div id="map" style="width:100%; height:480px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.15)"></div>
@@ -102,27 +103,30 @@ with gr.Blocks(css="""
 
     # JS -> Python bridge: when the map dispatches selectMonument event, set the dropdown and click generate
     # We attach a small JS listener that updates Gradio input and triggers the button click
-    demo.load(lambda: None, [], [], _js="""
-    () => {
-      window.addEventListener('selectMonument', (e) => {
+    js_code = """
+    <script>
+    window.addEventListener('selectMonument', (e) => {
         const name = e.detail.name;
-        // find the first dropdown element
         const selects = document.querySelectorAll('select');
+
         for (let s of selects) {
-          // try to match options by text
-          for (let opt of s.options) {
-            if (opt.text === name) {
-              s.value = opt.value;
-              s.dispatchEvent(new Event('change'));
-              // try to find the generate button and click it
-              const btn = document.querySelector('button[title="Generează muzică"]') || document.querySelector('button');
-              if (btn) btn.click();
-              return;
+            for (let opt of s.options) {
+                if (opt.text === name) {
+                    s.value = opt.value;
+                    s.dispatchEvent(new Event('change'));
+
+                    const btn = document.querySelector('button[title="Generează muzică"]') 
+                            || document.querySelector('button');
+                    if (btn) btn.click();
+                    return;
+                }
             }
-          }
         }
-      });
-    }
-    """)
-    
+    });
+    </script>
+    """
+
+    with gr.Blocks() as demo:
+        gr.HTML(js_code)
+
 demo.launch()
