@@ -5,6 +5,8 @@
         <localitate>Bran</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Castelul_Bran</wikipedia>
         <imagine>images/bran.jpg</imagine>
+        <lat>45.30</lat>
+        <lon>25.22</lon>
     <descriere>Castelul Bran este un monument istoric și arhitectonic situat în Culoarul Rucăr-Bran, la 30 de kilometri de Brașov , în regiunea etnografică Țara Bârsei din sud-estul Transilvaniei.</descriere></atractie>
 
 
@@ -13,6 +15,8 @@
         <localitate>Sinaia</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Castelul_Peleș</wikipedia>
         <imagine>images/peles.jpg</imagine>
+        <lat>45.35</lat>
+        <lon>25.54</lon>
     <descriere>Castelul Peleșeste unpalatdin Sinaia, construit între anii 1873 și 1914. Construită ca reședință de vară aregilor României, clădirea se află, în prezent, în proprietatea Familiei Regale a Românieiși adăpostește Muzeul Național Peleș.</descriere></atractie>
 
     <atractie>
@@ -20,6 +24,8 @@
         <localitate>București</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Palatul_Parlamentului</wikipedia>
         <imagine>images/palatul_parlamentului.jpg</imagine>
+        <lat>44.42</lat>
+        <lon>26.08</lon>
     <descriere>Palatul Parlamentuluidin București,România , măsoară 270 mpe 240 m, 84 m înălțime, și 92 m sub pământ realizat în spiritularhitecturiirealist socialiste.Are 9 niveluri la suprafață și alte 9 subterane. Conform World Records Academy, Palatul Parlamentului este a treia cea mai mare clădire administrativă pentru uz civil ca suprafață din lume, cea mai scumpă clădire administrativă din lume, și cea mai grea clădire din lume.Clădirea Palatului Parlamentului este situată în partea centrală a Bucureștiului , pe locul care astăzi se cheamă Dealul Arsenalului, încadrat de strada Izvor la vest și nord-vest, Bulevardul Națiunile Unite spre nord, Bulevardul Libertății la est și Calea 13 Septembrie la sud. Aceasta se află la 10 minute distanță de Piața Unirii și 20 de minute de Gara de Nord .[necesită citare]</descriere></atractie>
 
     <atractie>
@@ -27,6 +33,8 @@
         <localitate>București</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Ateneul_Român</wikipedia>
         <imagine>images/ateneu.jpg</imagine>
+        <lat>44.44</lat>
+        <lon>26.09</lon>        
     <descriere>Ateneul Româneste o sală de concerte din București, situată pe Calea Victoriei, în Piața George Enescu . Clădirea, care este realizată într-o combinație destil neoclasiccustil eclectic, a fost construită între 1886 și 1888, după planurile arhitectului francez Albert Galleron. În prezent, adăpostește și sediul Filarmonicii „George Enescu”.</descriere></atractie>
 
     <atractie>
@@ -34,6 +42,8 @@
         <localitate>Gura Humorului</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Mănăstirea_Voroneț</wikipedia>
         <imagine>images/voronet.jpg</imagine>
+        <lat>47.51</lat>
+        <lon>25.86</lon>
     <descriere>Mănăstirea Voroneț, supranumită „Capela Sixtină a Estului”, este un complex monahal medieval construit în satul Voroneț, astăzi localitate componentă a orașului Gura Humorului. Mănăstirea se află la 36 km de municipiul Suceavași la numai 4 km de centrul orașului Gura Humorului. Ea constituie una dintre cele mai valoroasectitoriiale lui Ștefan cel Mare .</descriere><an_constructie>1457</an_constructie><epoca>secolul 15 (Medieval)</epoca></atractie>
 
     <atractie>
@@ -41,6 +51,8 @@
         <localitate>Turda</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Salina_Turda</wikipedia>
         <imagine>images/salina_turda.jpg</imagine>
+        <lat>46.58</lat>
+        <lon>23.78</lon>    
     <descriere>Salina Turdase găsește în zona Durgău-Valea Sărată din Turda. Intrarea însalină se făcea până în anul 2010 din str. Salinelor 54 A , în prezent prin noua și moderna intrare din centrul turistic Salina-Durgău (Aleea Durgău nr.</descriere><an_constructie>2010</an_constructie><epoca>secolul 21 (Contemporan)</epoca></atractie>
 
     <atractie>
@@ -48,6 +60,8 @@
         <localitate>Grădiștea de Munte</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Sarmizegetusa_Regia</wikipedia>
         <imagine>images/sarmizegetusa.jpg</imagine>
+        <lat>45.62</lat>
+        <lon>23.30</lon>      
     <descriere>Sarmizegetusa Regia a fost capitala și cel mai important centru militar, religios și politic alstatului dacînainte derăzboaiele cu Imperiul Roman. A fost nucleul unui sistem defensiv strategic format din șasefortărețe dacice din Munții Orăștiei, folosit de Decebalpentru apărare contracuceririi romane. Situl arheologic Sarmizegetusa este situat în satul Grădiștea de Muntedinjudețul Hunedoara.</descriere></atractie>
 
     <atractie>
@@ -55,13 +69,17 @@
         <localitate>Alba Iulia</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Alba_Iulia#Cetatea_Alba_Carolina</wikipedia>
         <imagine>images/cetatea_alba_iulia.jpg</imagine>
+        <lat>46.06</lat>
+        <lon>23.57</lon>    
     <descriere>Alba Iulia, în slavona veche Bălgrad, estemunicipiulde reședință aljudețului Alba,Transilvania,România, format din localitățile componente Alba Iulia ,Bărăbanț,Micești,Oardași Pâclișa.Se află în zona de sud-vest a Transilvaniei, pe malulrâului Mureș.</descriere></atractie>
 
     <atractie>
         <nume>Biserica Neagră</nume>
         <localitate>Brașov</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Biserica_Neagră</wikipedia>
-        <imagine>images/biserica_neagra.jpg</imagine>
+        .<imagine>images/biserica_neagra.jpg</imagine>
+        <lat>45.64</lat>
+        <lon>25.58</lon>       
     <descriere>Biserica Neagră este biserica parohială acomunității evanghelice luteranedin Brașov, situată în centrul municipiului Brașov. Clădirea gotică a fost parțial avariată în incendiul din 1689, când zidurile ei s-au înnegrit și a primit numele actual. Denumirea populară de după incendiu, „Biserica Neagră”, a fost acceptată oficial în secolul al XIX-lea.</descriere></atractie>
 
     <atractie>
@@ -69,6 +87,8 @@
         <localitate>Constanța</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Cazinoul_din_Constanța</wikipedia>
         <imagine>images/cazinoul_constanta.jpg</imagine>
+        <lat>44.17</lat>
+        <lon>28.66</lon>     
     <descriere>Cazinoul din Constanțaeste o clădire istorică din Constanța. Este unul dintresimbolurilereprezentative ale orașului, fiind ridicat între anii 1904-1910 la inițiativa Regelui Carol Iși inaugurat la data de 15 august 1910.</descriere><an_constructie>1904</an_constructie><epoca>secolul 20 (Modern)</epoca></atractie>
 
     <atractie>
@@ -76,6 +96,8 @@
         <localitate>Bicaz</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Cheile_Bicazului</wikipedia>
         <imagine>images/cheile_bicazului.jpg</imagine>
+        <lat>46.91</lat>
+        <lon>26.08</lon>      
     <descriere>Cheile Bicazuluisuntcheisituate în partea centrală a Munților Hășmaș, în nord-estul Românieiîn județele Neamțși Harghita, dezvoltate încalcarejurasice. Se află în partea centrală a culmii estice Tulgheș-Valea Recea Masivului Hășmaș. Axul principal al acestora este reprezentat de cătrerâul Bicaz.</descriere></atractie>
 
     <atractie>
@@ -83,6 +105,8 @@
         <localitate>Harghita</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Lacul_Sfânta_Ana</wikipedia>
         <imagine>images/sfanta_ana.jpg</imagine>
+        <lat>46.12</lat>
+        <lon>25.88</lon>     
     <descriere>Lacul Sfânta Ana este singurullac vulcanicdin România. Este situat înmasivul Ciomatudinjudețul Harghita, în stângarâului Olt, în apropiere de stațiunea Tușnad. Lacul este așezat pe fundul craterului unuivulcanstins, denumit Ciomatu Mare , din masivul vulcanic Puciosu, locul celei mai recente erupții vulcanice în Carpați și în Europa de Est, care a avut loc acum câteva zeci de mii de ani .</descriere></atractie>
 
     <atractie>
@@ -90,6 +114,8 @@
         <localitate>Tulcea</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Delta_Dunării</wikipedia>
         <imagine>images/delta_dunarii.jpg</imagine>
+        <lat>45.22</lat>
+        <lon>29.25</lon>        
     <descriere>Delta Dunării, aflată în mare parte în Dobrogea,Româniași parțial în Ucraina,este a doua ca mărime și cea mai bine conservată dintredelteleeuropene.</descriere></atractie>
 
     <atractie>
@@ -97,6 +123,8 @@
         <localitate>Vișeu de Sus</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Mocănița</wikipedia>
         <imagine>images/mocanita.jpg</imagine>
+        <lat>47.75</lat>
+        <lon>24.43</lon>       
     <descriere>Mocănițaeste denumirea generică dată unuitrendelinieîngustă, care circulă de regulă în regiuni de munte.</descriere></atractie>
 
     <atractie>
@@ -104,6 +132,8 @@
         <localitate>Hunedoara</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Castelul_Corvinilor</wikipedia>
         <imagine>images/castelul_corvinilor.jpg</imagine>
+        <lat>45.74</lat>
+        <lon>22.88</lon>     
     <descriere>Castelul Corvinilor, numit și Castelul Huniazilorsau al Hunedoarei, estecetateamedievală a Hunedoarei, unul din cele mai importante monumente dearhitectură goticădin România.Castelul a fost construit pe ruinele unei fortificații dinsecolul al XIV-lea. Este situat pe o stâncă de calcar în partea de sud-vest a orașului Hunedoaradin România. După 1440, voievodul Iancu de Hunedoaraa transformat o fortificație existentă în castelul ancestral al familiei nobiliare Huniade.</descriere><an_constructie>1440</an_constructie><epoca>secolul 15 (Medieval)</epoca></atractie>
 
     <atractie>
@@ -111,6 +141,8 @@
         <localitate>Munții Făgăraș</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Transfăgărășan</wikipedia>
         <imagine>images/transfagarasan.jpg</imagine>
+        <lat>45.45</lat>
+        <lon>24.62</lon>    
     <descriere>Transfăgărășanul este o cale rutieră de circulație din România, care începe încomuna Bascov,județul Argeșde lângă orașul Pitești, în direcția orașului Curtea de Argeșși se termină la intersecția cu drumul DN 1 între Sibiuși Brașov, în apropierea comunei Cârțișoara, cu o lungime de 151 km, traversând pe axa nord-sud Munții Făgăraș. Porțiunea de labarajul Vidrarupână la Cârțișoara traversează un teren montan la altitudini mari și a fost construită în perioada 1970–1974, pe o lungime de aproximativ 91 km.</descriere><an_constructie>1970</an_constructie><epoca>secolul 20 (Contemporan)</epoca></atractie>
 
     <atractie>
@@ -118,6 +150,8 @@
         <localitate>Curtea de Argeș</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Mănăstirea_Curtea_de_Argeș</wikipedia>
         <imagine>images/curtea_de_arges.jpg</imagine>
+        <lat>45.15</lat>
+        <lon>24.67</lon>  
     <descriere>Mănăstirea Curtea de Argeșeste omănăstireortodoxă din România, situată în orașul Curtea de Argeș, construită între 1515-1517 de Neagoe Basarab. Ansamblul cuprinde catedrala episcopală, unul dintre cele mai celebre monumente de arhitectură din Țara Românească. Catedrala este inclusă în Lista monumentelor istorice din România, având codul de clasificare AG-II-a-A-13628.În timpul lui Carol I, catedrala a fost transformată în necropolă pentru familia regală a României.</descriere><an_constructie>1515</an_constructie><epoca>secolul 16 (Early Modern)</epoca></atractie>
 
     <atractie>
@@ -125,6 +159,8 @@
         <localitate>Bozovici</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Cascada_Bigăr</wikipedia>
         <imagine>images/bigar.jpg</imagine>
+        <lat>45.00</lat>
+        <lon>21.95</lon>  
     <descriere>Izvorul Bigăr este o arie protejată de interes național ce corespunde categoriei a IV-a IUCN , situată înjudețul Caraș-Severin, pe teritoriul administrativ alcomunei Bozovici.</descriere></atractie>
 
     <atractie>
@@ -132,6 +168,8 @@
         <localitate>Câmpina</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Castelul_Iulia_Hasdeu</wikipedia>
         <imagine>images/iulia_hasdeu.jpg</imagine>
+        <lat>46.49</lat>
+        <lon>22.81</lon>   
     <descriere>Castelul „Iulia Hasdeu”este un capriciu arhitectonic în formă de castel din municipiul Câmpina,România, construit între anii 1894 și 1896.</descriere><an_constructie>1894</an_constructie><epoca>secolul 19 (Modern)</epoca></atractie>
 
     <atractie>
@@ -139,6 +177,8 @@
         <localitate>Gârda de Sus</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Peștera_Scărișoara</wikipedia>
         <imagine>images/scarisoara.jpg</imagine>
+        <lat>46.49</lat>
+        <lon>22.81</lon>  
     <descriere>Peștera Scărișoarasau Ghețarul de la Scărișoaraadăpostește cel mai mareghețarsubteran din România. De aici îi vine și numele de „ghețar” iar „Scărișoara” provine de lacomuna Scărișoarasituată 16 km mai jos, de care aparținea administrativ în vremea când a fost numită astfel. Acum aparținecomunei Gârda de Sus,județul Alba.</descriere></atractie>
 
     <atractie>
@@ -146,6 +186,8 @@
         <localitate>Brașov</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Piața_Sfatului</wikipedia>
         <imagine>images/piata_sfatului.jpg</imagine>
+        <lat>45.64</lat>
+        <lon>25.58</lon>   
     <descriere>Piața Sfatului, situată în mijloculcentrului istoric al Brașovului , a reprezentat un important centru comercial, social și cultural de-a lungul timpului.</descriere></atractie>
 
     <atractie>
@@ -153,6 +195,8 @@
         <localitate>București</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Arcul_de_Triumf_din_București</wikipedia>
         <imagine>images/arcul_de_triumf.jpg</imagine>
+        <lat>44.46</lat>
+        <lon>26.07</lon>  
     <descriere>Arcul de Triumfeste unmonumentsituat în partea de nord a Bucureștiului, însectorul 1, la intersecțiașoselei Kiseleffcu bulevardele Constantin Prezan,Alexandru Averescuși Alexandru Constantinescu. Monumentul, proiectat de Petre Antonescu, a fost construit în perioada 1921-1922, renovat în perioada 1935-1936, și din nou renovat începând din 2014.El comemorează participarea României în Primul Război Mondial.</descriere><an_constructie>1921</an_constructie><epoca>secolul 20 (Modern)</epoca></atractie>
 
     <atractie>
@@ -160,6 +204,8 @@
         <localitate>Constanța</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Portul_Tomis</wikipedia>
         <imagine>images/portul_tomis.jpg</imagine>
+        <lat>44.17</lat>
+        <lon>28.66</lon>   
     <descriere>Portul Tomisesteportulturisticșide pescuital Constanței, aflat încentrul istoric al orașului.</descriere></atractie>
 
     <atractie>
@@ -167,6 +213,8 @@
         <localitate>Brașov</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Poiana_Brașov</wikipedia>
         <imagine>images/poiana_brasov.jpg</imagine>
+        <lat>45.59</lat>
+        <lon>25.55</lon>     
     <descriere>Poiana Brașov este o localitate componentă amunicipiului Brașovdinjudețul Brașov,Transilvania,România.</descriere></atractie>
 
     <atractie>
@@ -174,6 +222,8 @@
         <localitate>Putna</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Mănăstirea_Putna</wikipedia>
         <imagine>images/putna.jpg</imagine>
+        <lat>47.86</lat>
+        <lon>25.59</lon>  
     <descriere>Mănăstirea Putna, cu hramul Adormirea Maicii Domnului, este unlăcaș monahalcreștin ortodox, important centru cultural, religios și artistic. În anul 2021 autoritățile din județul Suceava au început marcarea traseului Via Mariaepână la Mănăstirea Putna.</descriere></atractie>
 
     <atractie>
@@ -181,6 +231,8 @@
         <localitate>Sighișoara</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Sighișoara</wikipedia>
         <imagine>images/citadel_sighisoara.jpg</imagine>
+        <lat>46.21</lat>
+        <lon>24.79</lon>   
     <descriere>Sighișoara este unmunicipiuînjudețul Mureș,Transilvania,România, format din localitățile componente Angofa,Aurel Vlaicu,Rora, Sighișoara ,Șoromiclea,Venchiși Viilor, și din satul Hetiur.Municipiul are o populație de 28.102 locuitori .Centrul istorica fost inclus pe Lista monumentelor istorice din județul Mureș, având codul de clasificare MS-II-s-A-15806. De asemenea, centrul istoric este inclus înpatrimoniul mondial UNESCO. Totodată, în interiorul cetății Sighișoara se organizează un festival tematic medieval intitulat „Sighișoara Medievală”.</descriere><an_constructie>2011</an_constructie><epoca>secolul 21 (Contemporan)</epoca></atractie>
 
     <atractie>
@@ -188,6 +240,8 @@
         <localitate>Bonțida</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Castelul_Bánffy_de_la_Bonțida</wikipedia>
         <imagine>images/banffy.jpg</imagine>
+        <lat>46.96</lat>
+        <lon>23.83</lon>   
     <descriere>Castelul Bánffy de la Bonțida , care a fost cunoscut ca Versailles-ul Transilvaniei, este un ansamblu arhitectonic construit de familia Bánffy în comuna Bonțida,județul Cluj. Nucleul complexului de edificii esterenascentist, extinderile și modificările ulterioare au fost făcute în secolul al XVIII-lea înstil baroc, iar în secolul al XIX-lea în stilneoclasicistșistil romantic .</descriere><an_constructie>1855</an_constructie><epoca>secolul 19 (Modern)</epoca></atractie>
 
     <atractie>
@@ -195,6 +249,8 @@
         <localitate>Târgu Jiu</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Coloana_Infinitului</wikipedia>
         <imagine>images/coloana_infinitului.jpg</imagine>
+        <lat>45.03</lat>
+        <lon>23.28</lon>    
     <descriere>Coloana Infinituluisau Coloana fără sfârșiteste osculpturăa artistului român Constantin Brâncuși, parte a trilogiei Ansamblului Monumentaldin Târgu Jiu, compus din Coloana Infinită,Poarta sărutuluiși Masa tăceriiconcepute și executate de acesta. Inaugurată la 27 octombrie 1938, coloana are o înălțime de 29,35 metri și este compusă din 16 module octaedrice suprapuse, respectiv având la extremitățile inferioară și superioară câte o jumătate de modul.</descriere></atractie>
 
     <atractie>
@@ -202,5 +258,7 @@
         <localitate>Iași</localitate>
         <wikipedia>https://ro.wikipedia.org/wiki/Palatul_Culturii_din_Iași</wikipedia>
         <imagine>images/palatul_culturii.jpg</imagine>
+        <lat>46.29</lat>
+        <lon>21.24</lon>    
     <descriere>Palatul Culturiidin Iașieste o clădire emblematică, construită, în perioada 1906-1925, în perimetrul fostei curți domnești medievalemoldovenești, pe locul fostului palat domnesc. Clădirea este înscrisă în Lista monumentelor istorice, avândcod LMIIS-II-m-A-03957.01, și din ansamblu mai fac parte și ruinele curții domnești .</descriere><an_constructie>1925</an_constructie><epoca>secolul 20 (Modern)</epoca></atractie>
 </atractii>

@@ -116,7 +116,6 @@ def save_monuments(monuments):
     print("✅ Dataset actualizat cu succes în dataset.xml!")
 
 def load_monuments():
-    """Citește toate intrările din XML și returnează lista de dict-uri (fără enrich)."""
     tree = ET.parse(DATASET_XML)
     root = tree.getroot()
 
@@ -128,9 +127,17 @@ def load_monuments():
             "image": elem.findtext("imagine"),
             "wiki": elem.findtext("wikipedia"),
             "descriere": elem.findtext("descriere"),
+            "lat": elem.findtext("lat"),
+            "lon": elem.findtext("lon"),
         }
-        monuments.append(m)
+        # convert to float if present
+        try:
+            m["lat"] = float(m["lat"]) if m["lat"] else None
+            m["lon"] = float(m["lon"]) if m["lon"] else None
+        except:
+            m["lat"], m["lon"] = None, None
 
+        monuments.append(m)
     return monuments
 
 def enrich_all():
