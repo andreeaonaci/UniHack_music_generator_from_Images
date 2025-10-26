@@ -24,7 +24,6 @@ const defaultIcon = L.icon({
     popupAnchor:[0,-28]
 });
 
-// Marker static existent
 markers.forEach(m => {
     if(!m.lat || !m.lon) return;
     const marker = L.marker([m.lat,m.lon], {icon:defaultIcon}).addTo(map);
@@ -34,17 +33,10 @@ markers.forEach(m => {
     marker.bindPopup(popupHtml, {maxWidth:280});
 });
 
-// Functie pentru markers fensi pe click
 function addNearbyMarkers(nearbyMonuments){
-    // Sterge markerii anteriori
-    if(window.tempMarkers){
-        window.tempMarkers.forEach(m => map.removeLayer(m));
-    }
+    if(window.tempMarkers) window.tempMarkers.forEach(m => map.removeLayer(m));
     window.tempMarkers = [];
-
     if(!nearbyMonuments || nearbyMonuments.length === 0) return;
-
-    // Adauga cerc vizual pentru raza
     const first = nearbyMonuments[0];
     const searchCircle = L.circle([first.lat, first.lon], {
         radius: 50000,
@@ -54,7 +46,6 @@ function addNearbyMarkers(nearbyMonuments){
         dashArray: '5,5'
     }).addTo(map);
     window.tempMarkers.push(searchCircle);
-
     nearbyMonuments.forEach(m => {
         if(!m.lat || !m.lon) return;
         const icon = L.divIcon({
@@ -67,12 +58,9 @@ function addNearbyMarkers(nearbyMonuments){
         marker.bindPopup(popupHtml, {maxWidth:250});
         window.tempMarkers.push(marker);
     });
-
-    // Centrare harta
     map.setView([first.lat, first.lon], 10);
 }
 
-// Ascultam mesajele din Gradio
 window.addEventListener('message', (e) => {
     if(e.data?.type === 'addNearby'){
         addNearbyMarkers(e.data.monuments);
