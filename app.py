@@ -155,7 +155,6 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     # Harta statică pentru click exact
     gr.Markdown("### 🖱️ Click pe harta statică")
     click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
-    click_output = gr.Textbox(label="Coordonate click", interactive=False)
     nearby_json = gr.JSON(label="Nearby monuments", visible=False)
 
     # === BOUNDING BOX România ===
@@ -163,15 +162,24 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     lat_min = 43.63
     lon_min = 20.26
     lon_max = 29.65
-    search_radius = 0.5  # grade (~50km)
+    search_radius = 0.25  # grade (~25km)
 
-    click_output = gr.Textbox(label="Coordonate click", interactive=False)
-    nearby_list = gr.Textbox(label="Monumente găsite", interactive=False)  # Afișăm numele monumentelor
-
+    click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2, )
+    # nearby_list = gr.Textbox(
+    #     label="Monumente găsite",
+    #     interactive=False,
+    #     lines=2,           # minim 2 linii
+    #     max_lines=10,      # crește automat până la 10
+    #     show_copy_button=True
+    # )
+    
+    nearby_list = gr.Dropdown(label="Monumente găsite", choices=[], multiselect=False, interactive=True)
+    
+    
     def handle_click(evt: gr.SelectData):
         if evt is None:
-            return "No click detected", ""
-        
+            return "No click detected", []
+
         x_px, y_px = evt.index
         img = Image.open("assets/harta_romaniei.jpg")
         w, h = img.size
@@ -191,10 +199,11 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
             if d_lat <= search_radius and d_lon <= search_radius:
                 nearby_monuments.append(m)
 
-        # Afișăm numele monumentelor într-un textbox
-        nearby_names = "\n".join([m["nume"] for m in nearby_monuments])
+        nearby_names = [m["nume"] for m in nearby_monuments]
         print(f"[DEBUG] Found {len(nearby_monuments)} nearby monuments")
-        return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby_monuments)} monumente găsite", nearby_names
+        return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby_monuments)} monumente găsite", gr.update(choices=nearby_names, value=[])
+
+
 
     click_img.select(
         fn=handle_click,
