@@ -47,7 +47,6 @@ with open(map_html_path, "w", encoding="utf-8") as f:
 const markers = {markers_json};
 const map = L.map('map', {{zoomControl:true}}).setView([45.94,24.97],7);
 
-// Fundal harta OSM
 L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{maxZoom:19}}).addTo(map);
 
 const defaultIcon = L.icon({{
@@ -107,22 +106,18 @@ window.addEventListener('message', (e) => {{
 </html>
 """)
     
-# === Date harta și coordonate ===
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.5
 
 def draw_cloud(draw, cx, cy, text, font):
-    # dimensiuni bază
     text_bbox = font.getbbox(text)
     text_w = text_bbox[2] - text_bbox[0]
     text_h = text_bbox[3] - text_bbox[1]
 
-    # norul va fi puțin mai mare decât textul
     cloud_w = text_w + 40
     cloud_h = text_h + 30
 
-    # coordonate cercuri puf
     offsets = [(-10,0), (10,0), (0,-5), (-5,-5), (5,-5), (0,5)]
     for dx, dy in offsets:
         r = 15
@@ -131,13 +126,11 @@ def draw_cloud(draw, cx, cy, text, font):
             fill=(255,255,255,220)
         )
 
-    # margine pentru claritate dacă se suprapun
     draw.rounded_rectangle(
         (cx - cloud_w//2, cy - cloud_h//2, cx + cloud_w//2, cy + cloud_h//2),
         radius=20, outline=(150,150,150,180), width=2
     )
 
-    # scriem textul în mijloc
     draw.text((cx, cy), text, font=font, fill=(0,0,0,255), anchor="mm")
 
 def draw_markers_on_image(evt: gr.SelectData, img_input):
@@ -173,13 +166,11 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
     except:
         font = ImageFont.load_default()
 
-    # centrul clusterului
     mx_center = int(np.mean([(m["lon"] - lon_min) / (lon_max - lon_min) * w for m in nearby]))
     my_center = int(np.mean([(lat_max - m["lat"]) / (lat_max - lat_min) * h for m in nearby]))
 
     n = len(nearby)
-    radius = 0 if n == 1 else min(40 + 15*n, 90)  # dacă e un singur monument, rămâne pe loc, altfel cerc mai mare
-
+    radius = 0 if n == 1 else min(40 + 15*n, 90) 
     for i, m in enumerate(nearby):
         angle = 2 * math.pi * i / n
         mx = int(mx_center + radius * math.cos(angle))
@@ -202,16 +193,15 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
 
     return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby)} monumente", img, nearby
 
-# === Procesare monument UI existent ===
 def process_monument_ui(monument_name):
     monument = match_monument_by_name(monument_name)
     caption = monument.get("descriere","")
     image = "datasets/" + monument.get("image")
     music_path = generate_music(caption, output_path="assets/generated_music.wav")
+    ## Uncomment the next line for fast testing the frontend
     # music_path = "assets/generated_music.wav" #generate_music(caption, output_path="assets/generated_music.wav")
     return caption, music_path, image
 
-# === Coordonate România ===
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.25

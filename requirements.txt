@@ -1,8 +1,0 @@
-streamlit
-torch
-transformers
-Pillow
-soundfile
-torchaudio
-wikipedia
-googl

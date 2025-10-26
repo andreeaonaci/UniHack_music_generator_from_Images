@@ -1,4 +1,3 @@
-# modules/prompt_utils.py
 
 def build_music_prompt(caption: str, monument_type: str = None, period: str = None, mood: str = None) -> str:
     """

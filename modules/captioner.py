@@ -11,6 +11,6 @@ def generate_caption(image_path: str):
     if matched:
         final_caption = f"{matched['nume']} din {matched['localitate']}. {matched['descriere']}"
     else:
-        final_caption = base_caption  # fallback
+        final_caption = base_caption
 
     return final_caption
