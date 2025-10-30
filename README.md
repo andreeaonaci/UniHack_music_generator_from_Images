@@ -8,6 +8,7 @@
 - Vizualiza informații și imagini pentru fiecare monument.
 - Genera muzică inspirată de descrierea monumentului.
 - Afișa markere „norișor” vizibile cu numele monumentelor atunci când se face click pe hartă.
+- Descarcă si pareasza automat descrierea monumentelor pe de Wikipedia un limba română.
 
 Tehnologii folosite: **Python**, **Gradio**, **Leaflet.js**, **Pillow**, **NumPy**.
 Scopul proiectului este de a oferi o experiență interactivă și educativă pentru explorarea patrimoniului cultural din România.
@@ -62,7 +63,7 @@ project_root/
 ```
 conda create -n env_unihack python=3.10
 conda activate env_unihack
-pip install gradio pillow numpy
+pip install -r req.txt
 ```
 
 Asigură-te că ai fișierele din assets/ și modulele modules/music_generator.py și datasets/monuments.py.
@@ -95,5 +96,7 @@ Deschide link-ul afișat de Gradio în browser.
 - draw_markers_on_image(evt) — desenează cercuri și text peste harta statică când dai click.
 
 - handle_click(evt) — calculează coordonatele click-ului și găsește monumentele apropiate.
+
+- enrich_wikipedia_data(monuments) - descarca si parseaza descrierea monumentului de pe pagina de Wikipedia in limba romana. Returnează o scurta descriere de pe Wikipedia a monumentelor 
 
 
