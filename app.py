@@ -14,6 +14,7 @@ def build_markers_json():
         if m.get("lat") is not None and m.get("lon") is not None:
             markers.append({
                 "name": m["nume"],
+                "localitate": m.get("localitate"),
                 "lat": m["lat"],
                 "lon": m["lon"],
                 "image": m.get("image"),
@@ -27,15 +28,15 @@ monuments_list = [m["nume"] for m in load_monuments()]
 os.makedirs("assets", exist_ok=True)
 map_html_path = "assets/map.html"
 with open(map_html_path, "w", encoding="utf-8") as f:
-    f.write(f"""
+    template = """
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  html, body {{margin:0; padding:0; height:100%;}}
-  #map {{width: 100%; height: 480px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.15);}}
+  html, body {margin:0; padding:0; height:100%;}
+  #map {width: 100%; height: 480px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.15);}
 
 
 </style>
@@ -44,68 +45,100 @@ with open(map_html_path, "w", encoding="utf-8") as f:
 <div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const markers = {markers_json};
-const map = L.map('map', {{zoomControl:true}}).setView([45.94,24.97],7);
+const markers = {MARKERS};
+const map = L.map('map', {zoomControl:true}).setView([45.94,24.97],7);
 
 // Fundal harta OSM
-L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{maxZoom:19}}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
 
-const defaultIcon = L.icon({{
+const defaultIcon = L.icon({
     iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',
     iconSize:[28,28],
     iconAnchor:[14,28],
     popupAnchor:[0,-28]
-}});
+});
 
-markers.forEach(m => {{
-    if(!m.lat || !m.lon) return;
-    const marker = L.marker([m.lat,m.lon], {{icon:defaultIcon}}).addTo(map);
-    const imgHtml = m.image ? `<img src="${{m.image}}" style="width:120px;border-radius:8px;margin-bottom:8px;display:block;">` : "";
-    const descShort = m.desc ? (m.desc.length>200?m.desc.substring(0,200)+'...':m.desc) : '';
-    const popupHtml = `<div style="text-align:left;max-width:260px;">${{imgHtml}}<strong>${{m.name}}</strong><p style="font-size:12px;color:#333;margin:8px 0;">${{descShort}}</p></div>`;
-    marker.bindPopup(popupHtml, {{maxWidth:280}});
-}});
+// dynamic markers management
+window.appMarkers = [];
+function clearAppMarkers(){
+    if(window.appMarkers) window.appMarkers.forEach(m => map.removeLayer(m));
+    window.appMarkers = [];
+}
 
-function addNearbyMarkers(nearbyMonuments){{
+function createMarkersFromList(list){
+    clearAppMarkers();
+    list.forEach(m => {
+        if(!m.lat || !m.lon) return;
+        const marker = L.marker([m.lat,m.lon], {icon:defaultIcon}).addTo(map);
+        const imgHtml = m.image ? `<img src="${m.image}" style="width:120px;border-radius:8px;margin-bottom:8px;display:block;">` : "";
+        const descShort = m.desc ? (m.desc.length>200?m.desc.substring(0,200)+'...':m.desc) : '';
+        const popupHtml = `<div style="text-align:left;max-width:260px;">${imgHtml}<strong>${m.name}</strong><p style="font-size:12px;color:#333;margin:8px 0;">${descShort}</p></div>`;
+        marker.bindPopup(popupHtml, {maxWidth:280});
+        window.appMarkers.push(marker);
+    });
+}
+
+// initially add all markers
+createMarkersFromList(markers);
+
+function addNearbyMarkers(nearbyMonuments){
     if(window.tempMarkers) window.tempMarkers.forEach(m => map.removeLayer(m));
     window.tempMarkers = [];
     if(!nearbyMonuments || nearbyMonuments.length === 0) return;
     const first = nearbyMonuments[0];
-    const searchCircle = L.circle([first.lat, first.lon], {{
+    const searchCircle = L.circle([first.lat, first.lon], {
         radius: 50000,
         color: '#ff6b6b',
         fillColor: '#ff6b6b',
         fillOpacity: 0.1,
         weight: 2,
         dashArray: '5,5'
-    }}).addTo(map);
+    }).addTo(map);
     window.tempMarkers.push(searchCircle);
-    nearbyMonuments.forEach(m => {{
+    nearbyMonuments.forEach(m => {
         if(!m.lat || !m.lon) return;
-        const icon = L.divIcon({{
+        const icon = L.divIcon({
             html: `<div style="background:white;border-radius:50%;padding:4px;display:flex;justify-content:center;align-items:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);border:2px solid #4B0082;">
-                    <img src="${{m.image || 'https://cdn-icons-png.flaticon.com/512/684/684908.png'}}" style="width:36px;height:36px;border-radius:50%;">
+                    <img src="${m.image || 'https://cdn-icons-png.flaticon.com/512/684/684908.png'}" style="width:36px;height:36px;border-radius:50%;">
                    </div>`,
             className: ''
-        }});
-        const marker = L.marker([m.lat, m.lon], {{icon: icon}}).addTo(map);
+        });
+        const marker = L.marker([m.lat, m.lon], {icon: icon}).addTo(map);
         const descShort = m.desc ? (m.desc.length > 120 ? m.desc.substring(0,120)+'...' : m.desc) : '';
-        const popupHtml = `<div style="text-align:center; max-width:180px;"><strong>${{m.name}}</strong><p style="font-size:12px;color:#333;margin:4px 0;">${{descShort}}</p></div>`;
-        marker.bindPopup(popupHtml, {{maxWidth:200}});
+        const popupHtml = `<div style="text-align:center; max-width:180px;"><strong>${m.name}</strong><p style="font-size:12px;color:#333;margin:4px 0;">${descShort}</p></div>`;
+        marker.bindPopup(popupHtml, {maxWidth:200});
         window.tempMarkers.push(marker);
-    }});
+    });
     map.setView([first.lat, first.lon], 10);
-}}
+}
 
-window.addEventListener('message', (e) => {{
-    if(e.data?.type === 'addNearby'){{
+window.addEventListener('message', (e) => {
+    if(!e.data) return;
+    if(e.data.type === 'addNearby'){
         addNearbyMarkers(e.data.monuments);
-    }}
-}});
+    }else if(e.data.type === 'setCity'){
+        const city = e.data.city || '';
+        if(!city){
+            // show all
+            createMarkersFromList(markers);
+            map.setView([45.94,24.97],7);
+        } else {
+            const filtered = markers.filter(m => (m.localitate || '').toLowerCase().includes(city.toLowerCase()));
+            if(filtered.length>0){
+                createMarkersFromList(filtered);
+                map.setView([filtered[0].lat, filtered[0].lon], 12);
+            } else {
+                // no matches -> clear and center
+                clearAppMarkers();
+            }
+        }
+    }
+});
 </script>
 </body>
 </html>
-""")
+"""
+    f.write(template.replace('{MARKERS}', markers_json))
     
 # === Date harta și coordonate ===
 lat_max, lat_min = 48.27, 43.63
@@ -225,12 +258,21 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2)
     monument_dropdown = gr.Dropdown(choices=monuments_list, label="Selectează monument")
     generate_btn = gr.Button("🎶 Generează muzică")
+    # hidden bridge HTML to send messages to iframe when updated
+    bridge_out = gr.HTML("", visible=False)
+    # state to keep track of current view: 'ro' or 'tm'
+    view_state = gr.State(value='ro')
+    toggle_city_btn = gr.Button("Toggle Timișoara view")
     
     with gr.Row():
         with gr.Column(scale=2):
-            # gr.HTML(f"<iframe src='{map_html_path}' width='100%' height='480' style='border:none;border-radius:12px;'></iframe>")
+            # map iframe that can be controlled via postMessage
+            map_iframe = gr.HTML(f"<iframe id='mapframe' src='{map_html_path}' width='100%' height='480' style='border:none;border-radius:12px;'></iframe>")
             image_card = gr.Image(label="Imagine monument", type="filepath")
-            
+            # quick city buttons
+            with gr.Row():
+                tim_btn = gr.Button("Go to Timișoara")
+                ro_btn = gr.Button("Go to România (all)")
         with gr.Column():
             music_out = gr.Audio(label="Muzică generată", autoplay=True)
             
@@ -254,6 +296,37 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
         nearby_names = [m["nume"] for m in nearby_monuments]
         print(f"[DEBUG] Found {len(nearby_monuments)} nearby monuments")
         return f"Click: ({lat:.5f}, {lon:.5f}) — {len(nearby_monuments)} monumente", gr.update(choices=nearby_names, value=[])
+    def toggle_city(state):
+        """Toggle between Romania map and Timisoara map. Returns (image_path, dropdown_update, bridge_html, new_state)"""
+        # find timisoara monuments
+        mons = [m for m in load_monuments() if m.get('localitate') and 'timis' in m.get('localitate','').lower()]
+        tim_names = [m['nume'] for m in mons]
+
+        # paths
+        rom_img = 'assets/harta_romaniei.jpg'
+        tm_img = 'assets/harta_timisoara.jpg'
+        img_path = rom_img
+        new_state = 'ro'
+        bridge_js = ''
+
+        if state == 'ro':
+            # switch to timisoara
+            if os.path.exists(tm_img):
+                img_path = tm_img
+            else:
+                img_path = rom_img
+            new_state = 'tm'
+            # send setCity message to iframe to filter markers
+            bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"Timișoara\"}, '*');</script>"
+            dd_update = gr.update(choices=tim_names, value=[])
+        else:
+            # switch back to romania
+            img_path = rom_img
+            new_state = 'ro'
+            bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"\"}, '*');</script>"
+            dd_update = gr.update(choices=monuments_list, value=[])
+
+        return img_path, dd_update, bridge_js, new_state
 
     click_img.select(fn=handle_click, inputs=None, outputs=[click_output, monument_dropdown])
 
@@ -270,15 +343,44 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
         outputs=[caption_out, music_out, image_card]
     )
 
-    js_bridge = """
+    # wire toggle button
+    toggle_city_btn.click(fn=toggle_city, inputs=[view_state], outputs=[click_img, monument_dropdown, bridge_out, view_state])
+
+    # client side bridge: forward Gradio input changes to iframe and handle city buttons
+    js_bridge = f"""
     <script>
-    const iframe = document.querySelector('iframe');
-    document.addEventListener('gradio:input_changed', (evt) => {
-        if(evt.target.id === 'Monumente găsite'){  
-            const monuments = evt.target.value;
-            if(iframe) iframe.contentWindow.postMessage({type:'addNearby', monuments}, '*');
-        }
-    });
+    const iframe = document.getElementById('mapframe');
+
+    // forward Gradio dropdown changes (nearby monuments list) to iframe
+    document.addEventListener('gradio:input_changed', (evt) => {{
+        if(!iframe) return;
+        // the dropdown generated by gradio will have an id; instead listen for change on the select elements
+        const target = evt.target;
+        if(target && target.tagName === 'SELECT'){{
+            const opts = Array.from(target.selectedOptions || []).map(o => o.value);
+            const monuments = opts.map(n => {{ return {{ name: n }} }});
+            iframe.contentWindow.postMessage({{type:'addNearby', monuments}}, '*');
+        }}
+    }});
+
+    // city buttons
+    const goTim = document.querySelector('button:contains("Timi\u0219oara")') || document.querySelector('button[title]');
+    // fallback: add event using a small polling to locate the button by text
+    function findAndWireButtons(){{
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const tb = buttons.find(b => /Timi/i.test(b.innerText));
+        const rb = buttons.find(b => /Români|Romania|Romani/i.test(b.innerText));
+        if(tb) tb.addEventListener('click', () => sendCity('Timișoara'));
+        if(rb) rb.addEventListener('click', () => sendCity(''));
+        if(!tb || !rb) setTimeout(findAndWireButtons, 200);
+    }}
+    findAndWireButtons();
+
+    function sendCity(city){{
+        if(!iframe) return;
+        // request the parent (Gradio) for monuments and filter by localitate via a small RPC: we'll post a setCity message and the iframe will filter based on the full markers list embedded in the HTML
+        iframe.contentWindow.postMessage({{type:'setCity', city}}, '*');
+    }}
     </script>
     """
     gr.HTML(js_bridge)

@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<atractii>
+    <atractie>
+        <nume>Catedrala Mitropolitană „Sfinții Trei Ierarhi”</nume>
+        <wikipedia>https://ro.wikipedia.org/wiki/Catedrala_Mitropolitan%C4%83_din_Timi%C8%99oara</wikipedia>
+        <imagine>images_timisoara/catedrala_trei.jpg</imagine>
+        <lat>45.750905916680225</lat>
+        <lon>21.224293276748952</lon>
+        <descriere>Catedrala Mitropolitană din Timișoara este o biserică ortodoxă situată în centrul orașului Timișoara, cunoscută pentru arhitectura sa impresionantă și pentru rolul său important în viața religioasă și culturală a comunității locale.</descriere>
+    </atractie>
+    <atractie>
+        <nume>Palatul Weiss</nume>
+        <wikipedia>https://ro.wikipedia.org/wiki/Palatul_Weiss</wikipedia>
+        <imagine>images_timisoara/Palatul_Weiss.jpg</imagine>
+        <lat>45.7541209428181</lat>
+        <lon>21.22498376858656</lon>
+        <descriere>Palatul Weiss este o clădire istorică situată în Timișoara, cunoscută pentru arhitectura sa impresionantă și pentru rolul său în istoria orașului.</descriere>
+    </atractie>
+</atractii>
