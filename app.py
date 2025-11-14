@@ -5,6 +5,7 @@ import json, os
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import math
+from modules import settings as app_settings
 
 
 def build_markers_json():
@@ -145,6 +146,15 @@ lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.5
 
+# Timișoara bounding box (used when the app is in Timisoara view)
+# bottom-left = (45.74033907806305, 21.19006057720918)
+# top-right   = (45.777135769290304, 21.265946363968798)
+TIM_LAT_MIN = 45.74033907806305
+TIM_LON_MIN = 21.19006057720918
+TIM_LAT_MAX = 45.777135769290304
+TIM_LON_MAX = 21.265946363968798
+TIM_SEARCH_RADIUS = 0.03
+
 def draw_cloud(draw, cx, cy, text, font):
     # dimensiuni bază
     text_bbox = font.getbbox(text)
@@ -173,6 +183,7 @@ def draw_cloud(draw, cx, cy, text, font):
     # scriem textul în mijloc
     draw.text((cx, cy), text, font=font, fill=(0,0,0,255), anchor="mm")
 
+
 def draw_markers_on_image(evt: gr.SelectData, img_input):
     if evt is None:
         return "No click detected", Image.open("assets/harta_romaniei.jpg"), []
@@ -188,27 +199,46 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
     w, h = img.size
     x_px, y_px = evt.index
 
-    lat = lat_max - y_px * (lat_max - lat_min) / h
-    lon = lon_min + x_px * (lon_max - lon_min) / w
+    # decide which coordinate bounds and dataset to use based on global view
+    is_tm = False
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
+
+    if is_tm:
+        lat_min_loc, lat_max_loc = TIM_LAT_MIN, TIM_LAT_MAX
+        lon_min_loc, lon_max_loc = TIM_LON_MIN, TIM_LON_MAX
+        radius_use = TIM_SEARCH_RADIUS
+        dataset_path = "datasets/dataset_timisoara.xml"
+    else:
+        lat_min_loc, lat_max_loc = lat_min, lat_max
+        lon_min_loc, lon_max_loc = lon_min, lon_max
+        radius_use = search_radius
+        dataset_path = None
+
+    # convert pixel -> lat/lon using the selected bounds
+    lat = lat_max_loc - y_px * (lat_max_loc - lat_min_loc) / h
+    lon = lon_min_loc + x_px * (lon_max_loc - lon_min_loc) / w
 
     nearby = []
-    for m in load_monuments():
+    for m in load_monuments(dataset_path):
         if m.get("lat") is None or m.get("lon") is None:
             continue
-        if abs(m["lat"] - lat) <= search_radius and abs(m["lon"] - lon) <= search_radius:
+        if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
             nearby.append(m)
 
     if not nearby:
-        return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, nearby
+        return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=[])
 
     try:
         font = ImageFont.truetype("arial.ttf", 16)
     except:
         font = ImageFont.load_default()
 
-    # centrul clusterului
-    mx_center = int(np.mean([(m["lon"] - lon_min) / (lon_max - lon_min) * w for m in nearby]))
-    my_center = int(np.mean([(lat_max - m["lat"]) / (lat_max - lat_min) * h for m in nearby]))
+    # centrul clusterului (compute using the same bounds selected above)
+    mx_center = int(np.mean([(m["lon"] - lon_min_loc) / (lon_max_loc - lon_min_loc) * w for m in nearby]))
+    my_center = int(np.mean([(lat_max_loc - m["lat"]) / (lat_max_loc - lat_min_loc) * h for m in nearby]))
 
     n = len(nearby)
     radius = 0 if n == 1 else min(40 + 15*n, 90)  # dacă e un singur monument, rămâne pe loc, altfel cerc mai mare
@@ -233,7 +263,8 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
 
         draw.text((mx, my), text, font=font, fill=(0,0,0,255), anchor="mm")
 
-    return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby)} monumente", img, nearby
+    nearby_names = [m["nume"] for m in nearby]
+    return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby)} monumente", img, gr.update(choices=nearby_names, value=[])
 
 # === Procesare monument UI existent ===
 def process_monument_ui(monument_name):
@@ -282,16 +313,36 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
         if evt is None:
             return "No click detected", []
         x_px, y_px = evt.index
-        img = Image.open("assets/harta_romaniei.jpg")
+        # pick image and bounds according to current global view
+        try:
+            is_tm = app_settings.is_timisoara()
+        except Exception:
+            is_tm = False
+
+        img_path = "assets/harta_timisoara.jpg" if is_tm and os.path.exists("assets/harta_timisoara.jpg") else "assets/harta_romaniei.jpg"
+        img = Image.open(img_path)
         w, h = img.size
         x, y = x_px / w, y_px / h
-        lat = lat_max - y * (lat_max - lat_min)
-        lon = lon_min + x * (lon_max - lon_min)
+
+        if is_tm:
+            lat_min_loc, lat_max_loc = TIM_LAT_MIN, TIM_LAT_MAX
+            lon_min_loc, lon_max_loc = TIM_LON_MIN, TIM_LON_MAX
+            radius_use = TIM_SEARCH_RADIUS
+            dataset_path = "datasets/dataset_timisoara.xml"
+        else:
+            lat_min_loc, lat_max_loc = lat_min, lat_max
+            lon_min_loc, lon_max_loc = lon_min, lon_max
+            radius_use = search_radius
+            dataset_path = None
+
+        lat = lat_max_loc - y * (lat_max_loc - lat_min_loc)
+        lon = lon_min_loc + x * (lon_max_loc - lon_min_loc)
+
         nearby_monuments = []
-        for m in load_monuments():
+        for m in load_monuments(dataset_path):
             if m.get("lat") is None or m.get("lon") is None:
                 continue
-            if abs(m["lat"] - lat) <= search_radius and abs(m["lon"] - lon) <= search_radius:
+            if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
                 nearby_monuments.append(m)
         nearby_names = [m["nume"] for m in nearby_monuments]
         print(f"[DEBUG] Found {len(nearby_monuments)} nearby monuments")
@@ -325,6 +376,12 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
             new_state = 'ro'
             bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"\"}, '*');</script>"
             dd_update = gr.update(choices=monuments_list, value=[])
+
+        # update global view setting (make sure to set before returning)
+        try:
+            app_settings.set_view(new_state)
+        except Exception:
+            pass
 
         return img_path, dd_update, bridge_js, new_state
 

@@ -7,6 +7,9 @@ from random import choice
 
 DATASET_XML = "datasets/dataset.xml"
 
+# Path for the Timisoara-specific dataset (optional, may be absent)
+TIM_DATASET_XML = "datasets/dataset_timisoara.xml"
+
 
 def clean_text(text):
     """Curăță notele și textul lipit după parsing HTML."""
@@ -115,8 +118,14 @@ def save_monuments(monuments):
     tree.write(DATASET_XML, encoding="utf-8", xml_declaration=True)
     print("✅ Dataset actualizat cu succes în dataset.xml!")
 
-def load_monuments():
-    tree = ET.parse(DATASET_XML)
+def load_monuments(dataset_path: str = None):
+    """Load monuments from XML.
+
+    If `dataset_path` is provided, parse that file; otherwise parse the default
+    `DATASET_XML`. This lets callers request Timisoara-only data when needed.
+    """
+    xml_path = dataset_path or DATASET_XML
+    tree = ET.parse(xml_path)
     root = tree.getroot()
 
     monuments = []
@@ -134,7 +143,7 @@ def load_monuments():
         try:
             m["lat"] = float(m["lat"]) if m["lat"] else None
             m["lon"] = float(m["lon"]) if m["lon"] else None
-        except:
+        except Exception:
             m["lat"], m["lon"] = None, None
 
         monuments.append(m)
