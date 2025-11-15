@@ -271,11 +271,31 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
 
 # === Procesare monument UI existent ===
 def process_monument_ui(monument_name):
-    monument = match_monument_by_name(monument_name)
-    caption = monument.get("descriere","")
-    image = "datasets/" + monument.get("image")
+    # pick dataset according to current global view
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
+
+    dataset_path = "datasets/dataset_timisoara.xml" if is_tm else None
+
+    # look up the monument in the appropriate dataset (substring, case-insensitive)
+    monument = None
+    for m in load_monuments(dataset_path):
+        if m.get("nume") and monument_name.lower() in m.get("nume").lower():
+            monument = m
+            break
+
+    # fallback to global matcher if not found
+    if monument is None:
+        monument = match_monument_by_name(monument_name)
+
+    caption = monument.get("descriere", "")
+    image = None
+    if monument.get("image"):
+        # images in the datasets are stored relative to the dataset folder
+        image = os.path.join("datasets", monument.get("image"))
     music_path = generate_music(caption, output_path="assets/generated_music.wav")
-    # music_path = "assets/generated_music.wav" #generate_music(caption, output_path="assets/generated_music.wav")
     return caption, music_path, image
 
 # === Coordonate România ===
