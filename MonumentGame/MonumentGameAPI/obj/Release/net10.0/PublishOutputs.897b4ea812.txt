@@ -1,0 +1,5 @@
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\wwwroot\MonumentGameAPI.exe
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\wwwroot\MonumentGameAPI.dll
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\wwwroot\MonumentGameAPI.deps.json
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\wwwroot\MonumentGameAPI.runtimeconfig.json
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\wwwroot\MonumentGameAPI.pdb

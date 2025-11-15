@@ -1,0 +1,5 @@
+C:\Users\Deea\UniHack\MonumentGame\obj\Release\net10.0\win-x64\MonumentGame.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Deea\UniHack\MonumentGame\obj\Release\net10.0\win-x64\MonumentGame.AssemblyInfoInputs.cache
+C:\Users\Deea\UniHack\MonumentGame\obj\Release\net10.0\win-x64\MonumentGame.AssemblyInfo.cs
+C:\Users\Deea\UniHack\MonumentGame\obj\Release\net10.0\win-x64\MonumentGame.csproj.CoreCompileInputs.cache
+C:\Users\Deea\UniHack\MonumentGame\obj\Release\net10.0\win-x64\MonumentGame.sourcelink.json

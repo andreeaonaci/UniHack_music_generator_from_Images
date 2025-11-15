@@ -1,0 +1,67 @@
+@page "/game"
+@using System.Collections.Generic
+
+<h1 class="text-center text-primary">🌟 Guess the Monument Game 🌟</h1>
+
+<p class="text-center">Try to guess the monument based on hints. Good luck! 🍀</p>
+
+<div class="text-center my-3">
+    <p>🕵️‍♂️ Hint 1: @hints[0]</p>
+    <p>🕵️‍♀️ Hint 2: @hints[1]</p>
+</div>
+
+<div class="text-center my-3">
+    <input @bind="userGuess" placeholder="Your guess here..." class="form-control w-50 d-inline-block"/>
+    <button class="btn btn-success mx-2" @onclick="CheckGuess">Guess 🎯</button>
+</div>
+
+<p class="text-center fw-bold" style="color:@messageColor">@message</p>
+
+@code {
+    private Dictionary<string, List<string>> monuments = new Dictionary<string, List<string>>()
+    {
+        {"Turnul Eiffel", new List<string>{"Se află în Paris 🗼", "Construit din metal", "Simbol al Franței 🇫🇷"}},
+        {"Colosseum", new List<string>{"Se află în Roma 🏛️", "Arena antică", "Capacitate ~50.000 spectatori"}},
+        {"Machu Picchu", new List<string>{"Se află în Peru 🏞️", "Oraș antic Inca", "În munți ⛰️"}}
+    };
+
+    private List<string> hints = new List<string>();
+    private string chosenMonument = "";
+    private int attempts = 3;
+    private string userGuess = "";
+    private string message = "You have 3 attempts! 💪";
+    private string messageColor = "blue";
+
+    protected override void OnInitialized()
+    {
+        var rnd = new Random();
+        var keys = new List<string>(monuments.Keys);
+        chosenMonument = keys[rnd.Next(keys.Count)];
+        hints = monuments[chosenMonument];
+    }
+
+    private void CheckGuess()
+    {
+        if (userGuess.Trim().Equals(chosenMonument, StringComparison.OrdinalIgnoreCase))
+        {
+            message = $"🎉 Correct! The monument was {chosenMonument} 🏆";
+            messageColor = "green";
+        }
+        else
+        {
+            attempts--;
+            if (attempts > 0)
+            {
+                message = $"❌ Incorrect! {attempts} attempts left. Try again!";
+                messageColor = "red";
+            }
+            else
+            {
+                message = $"💔 Out of attempts! The monument was {chosenMonument}.";
+                messageColor = "darkred";
+            }
+        }
+
+        userGuess = "";
+    }
+}

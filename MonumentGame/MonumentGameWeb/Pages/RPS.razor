@@ -1,0 +1,41 @@
+@page "/rps"
+
+<h2 class="text-center text-secondary">✊✋✌️ Rock-Paper-Scissors ✌️✋✊</h2>
+
+<p class="text-center fw-bold" style="color:@messageColor">@message</p>
+
+<div class="text-center my-3">
+    <button class="btn btn-danger mx-2" @onclick='() => Play("Rock")'>Rock ✊</button>
+    <button class="btn btn-success mx-2" @onclick='() => Play("Paper")'>Paper ✋</button>
+    <button class="btn btn-primary mx-2" @onclick='() => Play("Scissors")'>Scissors ✌️</button>
+</div>
+
+@code {
+    private string message = "Choose your move!";
+    private string messageColor = "blue";
+
+    private void Play(string playerChoice)
+    {
+        var rnd = new Random();
+        string[] options = { "Rock", "Paper", "Scissors" };
+        string computerChoice = options[rnd.Next(options.Length)];
+
+        if (playerChoice == computerChoice)
+        {
+            message = $"🤝 Tie! Both chose {playerChoice}";
+            messageColor = "orange";
+        }
+        else if ((playerChoice == "Rock" && computerChoice == "Scissors") ||
+                 (playerChoice == "Paper" && computerChoice == "Rock") ||
+                 (playerChoice == "Scissors" && computerChoice == "Paper"))
+        {
+            message = $"🎉 You Win! {playerChoice} beats {computerChoice}";
+            messageColor = "green";
+        }
+        else
+        {
+            message = $"💔 You Lose! {computerChoice} beats {playerChoice}";
+            messageColor = "red";
+        }
+    }
+}

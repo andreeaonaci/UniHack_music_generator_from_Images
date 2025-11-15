@@ -6,6 +6,7 @@ import re
 import requests
 import tempfile
 from music_gen.mood import extract_music_mood
+from google import genai
 
 # ------------------- Smart Style Inference -------------------
 
@@ -284,7 +285,7 @@ def _generate_music_via_copilot(caption: str, output_path: str, duration_sec: in
         raise RuntimeError("COPILOT_BRIDGE_URL not set")
 
     # send both raw text and enriched prompt to the bridge so it can orchestrate
-    enriched = build_enriched_prompt(caption)
+    enriched = create_gemini_prompt_for_monument(caption)
     # show the final prompt that will be sent to the Copilot bridge
     print("➡️ Copilot bridge prompt:\n" + enriched)
     payload = {"text": caption, "prompt": enriched, "duration": int(min(duration_sec, 15)), "loop": bool(loop)}
@@ -323,6 +324,33 @@ def generate_music(caption: str, style: str = "", output_path="generated.wav", d
     # local fallback
     return _generate_music_local(caption, style=style, output_path=output_path, duration_sec=duration_sec, loop=loop)
 
+def create_gemini_prompt_for_monument(caption: str, style: str = "") -> str:
+    """
+    Build a Gemini prompt that generates a highly specific ambient music prompt
+    for a monument, based directly on the description and inferred style/mood.
+    """
+    # Step 1: Build enriched base prompt (translated, normalized, mood/style inferred)
+    base_prompt = build_enriched_prompt(caption, style)
+    
+    # Step 2: Ask Gemini to produce a unique music prompt tailored to this monument
+    gemini_prompt = (
+        f"Given the following description of a monument, create a vivid, highly specific "
+        f"ambient music prompt that reflects the monument's mood, architecture, and cultural atmosphere. "
+        f"Focus on instrumentation, textures, and emotional tone. "
+        f"Do not include vocals or lyrics. Output only the final concise prompt suitable "
+        f"for generating a short ambient piece (max 15 seconds).\n\n"
+        f"Monument description: {base_prompt}\n\n"
+        f"Final music prompt:"
+    )
+
+    client = genai.Client()
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=gemini_prompt
+    )
+    gemini_prompt =  response.text.strip()
+    
+    return gemini_prompt
 
 def build_enriched_prompt(caption: str, style: str = "") -> str:
     """Create an English, enriched prompt suitable for ambient music generation.

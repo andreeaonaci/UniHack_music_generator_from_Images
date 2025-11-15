@@ -11,6 +11,11 @@ from google.oauth2 import service_account
 from google.auth.transport.requests import Request as GoogleRequest
 from google import genai
 from openai import OpenAI
+from github import Github
+import subprocess
+import socket
+import time
+import requests
 
 # GEMINI can be called via a Google service account (recommended) or via an API key.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -93,7 +98,6 @@ def generate_trivia(monument_name, description):
     except Exception as e:
         raise RuntimeError(f"Auth0 authentication failed: {e}")
 
-    # 2) Încearcă Gemini
     try:
         client = genai.Client()
         response = client.models.generate_content(
@@ -102,24 +106,28 @@ def generate_trivia(monument_name, description):
         )
         return response.text.strip()
     except Exception as gemini_error:
-        print(f"Gemini API failed: {gemini_error}. Falling back to OpenAI...")
+        print(f"Gemini API failed: {gemini_error}.")
 
-    # 3) Fallback la OpenAI
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-    if not openai_api_key:
-        raise RuntimeError("No OPENAI_API_KEY found for fallback after Gemini failure.")
+    # try:
+    #     # Ensure the .NET backend is started (adjust path/profile as needed)
+    #     ensure_dotnet_running(project_path="C:/Users/Deea/UniHack/MonumentGame", port=5022, profile="http")
 
-    try:
-        openai.api_key = openai_api_key
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=150
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        raise RuntimeError(f"OpenAI fallback failed: {e}")
+    #     # Simply "call" the page — no payload needed
+    #     url = "http://localhost:5022/api/trivia/generate"
+    #     response = requests.get(url, timeout=5)
+
+    #     # Debug output
+    #     print(f"[fallback] GET {url} -> status={response.status_code}")
+
+    #     # Return a simple message since we don't care about JSON
+    #     if response.status_code == 200:
+    #         return "Local backend is running!"
+    #     else:
+    #         raise RuntimeError(f"Local backend returned status {response.status_code}")
+
+    # except Exception as local_error:
+    #     raise RuntimeError(f"Both Gemini and local fallback failed: {local_error}")
+
     
 def generate_trivia_with_fallback(monument_name, description):
     """UI-friendly wrapper: call generate_trivia and fall back to a harmless mocked
@@ -453,6 +461,41 @@ def process_monument_ui(monument_name):
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.25
+
+def ensure_dotnet_running(project_path, port=5022, profile="http"):
+    """Start the .NET server using the correct launch profile."""
+    
+    # 1. Check if already running
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        if sock.connect_ex(("localhost", port)) == 0:
+            print(f".NET backend already running on port {port}.")
+            return
+
+    print(f"🚀 Starting .NET backend using launch profile '{profile}'...")
+
+    # 2. Start dotnet run using REAL profile
+    subprocess.Popen(
+        ["dotnet", "run", "--launch-profile", profile],
+        cwd=project_path,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        shell=True
+    )
+
+    # 3. Wait for the server to go online
+    for _ in range(30):
+        try:
+            requests.get(f"http://localhost:{port}", timeout=1)
+            print("⭐ .NET backend is UP!")
+            return
+        except:
+            time.sleep(1)
+
+    raise RuntimeError("❌ .NET failed to start after 30 seconds.")
+
+ensure_dotnet_running(
+    project_path="MonumentGame/MonumentGameWeb"
+)
 
 with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);} .card {border-radius:15px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:12px;}") as demo:
     gr.Markdown("<h1 style='text-align:center;color:#4B0082;'>🎵 Music AI — Harta Interactivă</h1>")

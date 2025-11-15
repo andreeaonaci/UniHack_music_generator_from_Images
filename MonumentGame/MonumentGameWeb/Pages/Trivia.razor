@@ -1,0 +1,58 @@
+@page "/trivia"
+
+<h2 class="text-center text-success">❓ Trivia Quiz ❓</h2>
+
+<p class="text-center fw-bold" style="color:@messageColor">@message</p>
+
+<div class="text-center my-3">
+    <input @bind="userAnswer" placeholder="Your answer..." class="form-control w-50 d-inline-block"/>
+    <button class="btn btn-primary mx-2" @onclick="CheckAnswer">Submit Answer</button>
+</div>
+
+<p class="text-center">Question: @currentQuestion.Text</p>
+
+@code {
+    private class QuestionItem
+    {
+        public string Text { get; set; } = "";
+        public string Answer { get; set; } = "";
+    }
+
+    private List<QuestionItem> questions = new List<QuestionItem>
+    {
+        new QuestionItem { Text = "Capitala Franței?", Answer = "Paris" },
+        new QuestionItem { Text = "Cel mai mare ocean?", Answer = "Pacific" },
+        new QuestionItem { Text = "Lungimea Piramidei lui Keops?", Answer = "146" }, 
+        new QuestionItem { Text = "Cine a pictat Mona Lisa?", Answer = "Leonardo da Vinci" }
+    };
+
+    private QuestionItem currentQuestion = new QuestionItem();
+    private string userAnswer = "";
+    private string message = "Type your answer and press submit!";
+    private string messageColor = "blue";
+
+    protected override void OnInitialized()
+    {
+        var rnd = new Random();
+        currentQuestion = questions[rnd.Next(questions.Count)];
+    }
+
+    private void CheckAnswer()
+    {
+        if (userAnswer.Trim().Equals(currentQuestion.Answer, StringComparison.OrdinalIgnoreCase))
+        {
+            message = "🎉 Correct!";
+            messageColor = "green";
+        }
+        else
+        {
+            message = $"❌ Incorrect! Correct answer: {currentQuestion.Answer}";
+            messageColor = "red";
+        }
+
+        // Pick a new question
+        var rnd = new Random();
+        currentQuestion = questions[rnd.Next(questions.Count)];
+        userAnswer = "";
+    }
+}

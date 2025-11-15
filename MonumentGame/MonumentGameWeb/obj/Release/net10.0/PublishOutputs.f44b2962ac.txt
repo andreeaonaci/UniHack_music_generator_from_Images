@@ -1,0 +1,4 @@
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\bin\Release\net10.0\publish\wwwroot\index.html
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\bin\Release\net10.0\publish\MonumentGameWeb.runtimeconfig.json
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\bin\Release\net10.0\publish\dotnet.js
+C:\Users\Deea\UniHack\MonumentGame\MonumentGameWeb\bin\Release\net10.0\publish\web.config
