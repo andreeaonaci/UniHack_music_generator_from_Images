@@ -1,7 +1,7 @@
 import gradio as gr
 from modules.music_generator import generate_music
 from datasets.monuments import load_monuments, match_monument_by_name
-import json, os
+import json, os, re
 import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
@@ -322,7 +322,53 @@ def preview_monument(monument_name):
     image = None
     if monument.get("image"):
         image = os.path.join("datasets", monument.get("image"))
-    return caption, image
+
+    # build image carousel: find images in datasets/images* that contain a slug of the monument name
+    def slug(s: str) -> str:
+        s = (s or "").lower().strip()
+        s = s.replace(' ', '_')
+        s = re.sub(r'[^0-9a-z_]', '', s)
+        return s
+
+    imgs = []
+    # choose folder according to current view
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
+    img_dir = os.path.join('datasets', 'images_timisoara' if is_tm else 'images')
+    if os.path.isdir(img_dir):
+        name_slug = slug(monument.get('nume') or monument_name or '')
+        for fname in sorted(os.listdir(img_dir)):
+            base = os.path.splitext(fname)[0].lower()
+            if name_slug and name_slug in base:
+                imgs.append(os.path.join(img_dir, fname))
+    # build thumbnails and main preview
+    thumbs = []
+    originals = imgs[:]
+    for i, p in enumerate(originals):
+        try:
+            t = make_thumbnail(p, i)
+            thumbs.append(t)
+        except Exception:
+            thumbs.append(p)
+
+    # determine main original (prefer the dataset `image` if present)
+    main_orig = None
+    if image and os.path.exists(image):
+        main_orig = image
+    elif originals:
+        main_orig = originals[0]
+
+    main_preview = None
+    if main_orig:
+        try:
+            main_preview = make_main_preview(main_orig, 0)
+        except Exception:
+            main_preview = main_orig
+
+    # return caption, main image preview, thumbnails (for gallery), originals (state), initial_index
+    return caption, main_preview, thumbs, originals, 0
 
 
 def generate_music_for_monument(monument_name, loop=True, use_local=False):
@@ -352,127 +398,308 @@ lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.25
 
-# hide the JSON debug element that Gradio sometimes shows and keep existing styling
-gr_css = "body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);} .card {border-radius:15px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:12px;} .json-formatter-container{display:none!important;}"
-with gr.Blocks(css=gr_css) as demo:
-    gr.Markdown("<h1 style='text-align:center;color:#4B0082;'>🎵 Music AI — Harta Interactivă</h1>")
 
-    gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
-    gr.Markdown("Apasă un marker pe hartă sau click pe harta statică pentru coordonate.")
-    click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
-    click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2)
-    monument_dropdown = gr.Dropdown(choices=monuments_list, label="Selectează monument")
-    generate_btn = gr.Button("🎶 Music AI — Generează muzică")
-    # hidden bridge HTML to send messages to iframe when updated
-    bridge_out = gr.HTML("", visible=False)
-    # state to keep track of current view: 'ro' or 'tm'
-    view_state = gr.State(value='ro')
-    toggle_city_btn = gr.Button("Toggle Timișoara view")
-    
-    with gr.Row():
-        with gr.Column(scale=2):
-            # map iframe that can be controlled via postMessage
-            image_card = gr.Image(label="Imagine monument", type="filepath")
-        with gr.Column():
-            # allow looping by default; we give the component a stable elem_id so JS can toggle the loop attribute
-            music_out = gr.Audio(label="Muzică generată", autoplay=True, elem_id="generated_audio")
-            loop_checkbox = gr.Checkbox(label="Loop muzică", value=True, elem_id="loop_checkbox")
-            use_local_checkbox = gr.Checkbox(label="Use local model (MusicGen)", value=False, elem_id="use_local_checkbox")
-            
-    caption_out = gr.Textbox(label="Descriere generată", interactive=False, lines=3, max_lines=12, autoscroll=True)
-    
-    def handle_click(evt: gr.SelectData):
-        if evt is None:
-            return "No click detected", []
-        x_px, y_px = evt.index
-        # pick image and bounds according to current global view
-        try:
-            is_tm = app_settings.is_timisoara()
-        except Exception:
-            is_tm = False
+# click handler: compute nearby monuments from a click event on the static map image
+def handle_click(evt: gr.SelectData):
+    if evt is None:
+        return "No click detected", []
+    x_px, y_px = evt.index
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
 
-        img_path = "assets/harta_timisoara.jpg" if is_tm and os.path.exists("assets/harta_timisoara.jpg") else "assets/harta_romaniei.jpg"
-        img = Image.open(img_path)
-        w, h = img.size
-        x, y = x_px / w, y_px / h
+    img_path = "assets/harta_timisoara.jpg" if is_tm and os.path.exists("assets/harta_timisoara.jpg") else "assets/harta_romaniei.jpg"
+    img = Image.open(img_path)
+    w, h = img.size
+    x, y = x_px / w, y_px / h
 
-        if is_tm:
-            lat_min_loc, lat_max_loc = TIM_LAT_MIN, TIM_LAT_MAX
-            lon_min_loc, lon_max_loc = TIM_LON_MIN, TIM_LON_MAX
-            radius_use = TIM_SEARCH_RADIUS
-            dataset_path = "datasets/dataset_timisoara.xml"
+    if is_tm:
+        lat_min_loc, lat_max_loc = TIM_LAT_MIN, TIM_LAT_MAX
+        lon_min_loc, lon_max_loc = TIM_LON_MIN, TIM_LON_MAX
+        radius_use = TIM_SEARCH_RADIUS
+        dataset_path = "datasets/dataset_timisoara.xml"
+    else:
+        lat_min_loc, lat_max_loc = lat_min, lat_max
+        lon_min_loc, lon_max_loc = lon_min, lon_max
+        radius_use = search_radius
+        dataset_path = None
+
+    lat = lat_max_loc - y * (lat_max_loc - lat_min_loc)
+    lon = lon_min_loc + x * (lon_max_loc - lon_min_loc)
+
+    nearby_monuments = []
+    for m in load_monuments(dataset_path):
+        if m.get("lat") is None or m.get("lon") is None:
+            continue
+        if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
+            nearby_monuments.append(m)
+
+    nearby_names = [m["nume"] for m in nearby_monuments]
+    return f"Click: ({lat:.5f}, {lon:.5f}) — {len(nearby_monuments)} monumente", gr.update(choices=nearby_names, value=[])
+
+# Carousel helpers: update image by index (wraps around)
+def _set_gallery_index(images, idx):
+    if not images:
+        return None, 0
+    n = len(images)
+    idx = int(idx) % n
+    return images[idx], idx
+
+def prev_image(images, idx):
+    path, new_idx = _set_gallery_index(images, (int(idx) - 1))
+    if path is None:
+        return None, new_idx
+    return make_main_preview(path, new_idx), new_idx
+
+def next_image(images, idx):
+    path, new_idx = _set_gallery_index(images, (int(idx) + 1))
+    if path is None:
+        return None, new_idx
+    return make_main_preview(path, new_idx), new_idx
+
+# Helpers to build resized preview and thumbnails
+def _ensure_preview_dirs():
+    out_main = os.path.join('assets', 'preview_main')
+    out_thumbs = os.path.join('assets', 'preview_thumbs')
+    os.makedirs(out_main, exist_ok=True)
+    os.makedirs(out_thumbs, exist_ok=True)
+    return out_main, out_thumbs
+
+def make_main_preview(orig_path, idx=None):
+    out_main, _ = _ensure_preview_dirs()
+    try:
+        im = Image.open(orig_path).convert('RGB')
+        im = im.resize((700, 450), Image.LANCZOS)
+        name = f"main_{os.path.splitext(os.path.basename(orig_path))[0]}"
+        if idx is not None:
+            name = f"{name}_{idx}"
+        out_path = os.path.join(out_main, name + '.jpg')
+        im.save(out_path, quality=85)
+        return out_path
+    except Exception:
+        return orig_path
+
+def make_thumbnail(orig_path, idx=None):
+    _, out_thumbs = _ensure_preview_dirs()
+    try:
+        im = Image.open(orig_path).convert('RGB')
+        im = im.resize((200, 164), Image.LANCZOS)
+        name = f"thumb_{os.path.splitext(os.path.basename(orig_path))[0]}"
+        if idx is not None:
+            name = f"{name}_{idx}"
+        out_path = os.path.join(out_thumbs, name + '.jpg')
+        im.save(out_path)
+        return out_path
+    except Exception:
+        return orig_path
+
+def toggle_city(state):
+    """Toggle between Romania map and Timisoara map. Returns (image_path, dropdown_update, bridge_html, new_state)"""
+    # find timisoara monuments
+    mons = [m for m in load_monuments() if m.get('localitate') and 'timis' in m.get('localitate','').lower()]
+    tim_names = [m['nume'] for m in mons]
+
+    # paths
+    rom_img = 'assets/harta_romaniei.jpg'
+    tm_img = 'assets/harta_timisoara.jpg'
+    img_path = rom_img
+    new_state = 'ro'
+    bridge_js = ''
+
+    if state == 'ro':
+        # switch to timisoara
+        if os.path.exists(tm_img):
+            img_path = tm_img
         else:
-            lat_min_loc, lat_max_loc = lat_min, lat_max
-            lon_min_loc, lon_max_loc = lon_min, lon_max
-            radius_use = search_radius
-            dataset_path = None
-
-        lat = lat_max_loc - y * (lat_max_loc - lat_min_loc)
-        lon = lon_min_loc + x * (lon_max_loc - lon_min_loc)
-
-        nearby_monuments = []
-        for m in load_monuments(dataset_path):
-            if m.get("lat") is None or m.get("lon") is None:
-                continue
-            if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
-                nearby_monuments.append(m)
-        nearby_names = [m["nume"] for m in nearby_monuments]
-    # mode_name = "Timișoara" if is_tm else "Romania"
-        return f"Click: ({lat:.5f}, {lon:.5f}) — {len(nearby_monuments)} monumente", gr.update(choices=nearby_names, value=[])
-    def toggle_city(state):
-        """Toggle between Romania map and Timisoara map. Returns (image_path, dropdown_update, bridge_html, new_state)"""
-        # find timisoara monuments
-        mons = [m for m in load_monuments() if m.get('localitate') and 'timis' in m.get('localitate','').lower()]
-        tim_names = [m['nume'] for m in mons]
-
-        # paths
-        rom_img = 'assets/harta_romaniei.jpg'
-        tm_img = 'assets/harta_timisoara.jpg'
+            img_path = rom_img
+        new_state = 'tm'
+        # send setCity message to iframe to filter markers
+        bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"Timișoara\"}, '*');</script>"
+        dd_update = gr.update(choices=tim_names, value=[])
+    else:
+        # switch back to romania
         img_path = rom_img
         new_state = 'ro'
-        bridge_js = ''
+        bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"\"}, '*');</script>"
+        dd_update = gr.update(choices=monuments_list, value=[])
 
-        if state == 'ro':
-            # switch to timisoara
-            if os.path.exists(tm_img):
-                img_path = tm_img
-            else:
-                img_path = rom_img
-            new_state = 'tm'
-            # send setCity message to iframe to filter markers
-            bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"Timișoara\"}, '*');</script>"
-            dd_update = gr.update(choices=tim_names, value=[])
-        else:
-            # switch back to romania
-            img_path = rom_img
-            new_state = 'ro'
-            bridge_js = "<script>const f=parent.document.getElementById('mapframe'); if(f) f.contentWindow.postMessage({\"type\":\"setCity\",\"city\":\"\"}, '*');</script>"
-            dd_update = gr.update(choices=monuments_list, value=[])
+    # update global view setting (make sure to set before returning)
+    try:
+        app_settings.set_view(new_state)
+    except Exception:
+        pass
 
-        # update global view setting (make sure to set before returning)
-        try:
-            app_settings.set_view(new_state)
-        except Exception:
-            pass
+    return img_path, dd_update, bridge_js, new_state
 
-        return img_path, dd_update, bridge_js, new_state
+# CSS for layout and the "Alte imagini" gallery box
+gr_css = gr_css = """
+* { font-family: 'Inter', sans-serif; transition: all .25s ease; }
+body, .gradio-container { background: #fefcf5; }
+#center_col, .gradio-container .gr-box, .gradio-container .gr-panel { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-radius: 16px; box-shadow: 0 6px 18px rgba(100,80,60,0.1); padding: 18px; }
+h1 { font-size:42px; font-weight:800; color:#5a4b3a; text-align:center; }
+#center_image { border-radius: 12px; box-shadow: 0 4px 12px rgba(80,60,40,0.15); }
+button { border-radius: 10px; background: #c3a66d; color: #fff; border: none; padding: 8px 14px; font-size:14px; }
+#prev_btn, #next_btn { width: 40px; font-size:18px; padding:4px 6px; }
+"""
+with gr.Blocks(css=gr_css) as demo:
+    gr.Markdown("<h1>🎵 Music AI — Harta Interactivă</h1>")
 
-    click_img.select(fn=handle_click, inputs=None, outputs=[click_output, monument_dropdown])
+    # --- Map Interaction ---
+    with gr.Column(scale=1):
+        toggle_city_btn = gr.Button("Toggle Timișoara view")
+        gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
+        gr.Markdown("Apasă un marker pe hartă sau click pe harta statică pentru coordonate.")
+        click_img = gr.Image(
+            value="assets/harta_romaniei.jpg",
+            elem_id="click_img",
+            interactive=False,
+            type="filepath",
+            show_label=False,
+            show_fullscreen_button=False,
+            show_download_button=False,
+            show_share_button=False,
+            mirror_webcam = False,
+        )
+        click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2)
+        monument_dropdown = gr.Dropdown(choices=monuments_list, label="Selectează monument")
+        generate_btn = gr.Button("🎶 Music AI — Generează muzică")
+        bridge_out = gr.HTML("", visible=False)
+        view_state = gr.State(value='ro')
 
-    # Select click pe imagine -> norisori vizibili direct
-    click_img.select(
-        fn=draw_markers_on_image,
-        inputs=[click_img],
-        outputs=[click_output, click_img, monument_dropdown]
+    # --- Main Monument Display ---
+    with gr.Column(elem_id="center_col", scale=1):
+        with gr.Row(variant="compact", elem_id="carousel_row"):
+            prev_btn = gr.Button("◀", elem_id="prev_btn")
+            image_card = gr.Image(
+                label="main_image",
+                type="filepath",
+                elem_id="center_image",
+                interactive=False,
+                show_fullscreen_button=False,
+                show_download_button=False,
+                show_share_button=False,
+                mirror_webcam = False,
+                show_label = False,
+                scale=8
+            )
+            next_btn = gr.Button("▶", elem_id="next_btn")
+
+    # --- Image Gallery ---
+    image_gallery = gr.Gallery(
+        label="gallery",
+        show_label=False,
+        elem_id="image_gallery",
+        columns=4,
+        height="100px"
     )
 
-    # On click: first show a fast preview (caption + image) so the user gets immediate feedback,
-    # then run the slow music generation in the background and update the audio component when ready.
-    # Use Gradio's .then chaining: preview runs immediately, the long task runs queued.
+    
+    gallery_state = gr.State(value=[])
+    gallery_index = gr.State(value=0)
+
+    # --- Music Controls ---
+    with gr.Row():
+        music_out = gr.Audio(label="Muzică generată", autoplay=True, elem_id="generated_audio")
+        with gr.Column():
+            loop_checkbox = gr.Checkbox(label="Loop muzică", value=True, elem_id="loop_checkbox")
+            use_local_checkbox = gr.Checkbox(label="Use local model (MusicGen)", value=False, elem_id="use_local_checkbox")
+
+    caption_out = gr.Textbox(
+        label="Descriere generată",
+        interactive=False,
+        lines=3,
+        max_lines=12,
+        autoscroll=True
+    )
+
+    # --- CSS for layout ---
+    gr.HTML("""
+    <style>
+    :root {
+        --gold: #c2a262;
+        --bg: #faf7ef;
+    }
+
+    /* Whole app background */
+    .gradio-container {
+        background: var(--bg) !important;
+    }
+
+    /* --- CAROUSEL ROW --- */
+    #carousel_row {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        padding: 15px 0;
+    }
+
+    /* Buttons left/right */
+    #prev_btn, #next_btn {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 22px !important;
+        border-radius: 8px !important;
+        background: var(--gold) !important;
+        color: white !important;
+        padding: 0 !important;
+        flex-shrink: 0;
+    }
+
+    /* Main image card */
+    #main_image {
+        max-width: 650px !important;
+        width: 100% !important;
+        height: auto !important;
+        border-radius: 18px !important;
+        border: 5px solid var(--gold) !important;
+    }
+
+    /* --- GALLERY --- */
+    /* Gallery sizing: show thumbnails at reasonable size (use generated thumbs) */
+    #image_gallery {
+        transform: none !important;
+        margin-top: 0 !important;
+        height: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 8px !important;
+        padding: 8px !important;
+    }
+
+    /* Grid container inside Gradio gallery (fallback) */
+    #image_gallery .grid-container {
+        gap: 8px !important;
+        justify-items: center !important;
+    }
+
+    /* Thumbnails: prefer the generated thumbnail size, keep height half of main (225px) */
+    #image_gallery img {
+        height: 225px !important;
+        width: auto !important;
+        object-fit: cover !important;
+        border-radius: 10px !important;
+        border: 2px solid var(--gold) !important;
+    }
+
+    /* --- AUDIO PLAYER + CHECKBOXES MATCH THE THEME --- */
+    #generated_audio {
+        border-radius: 15px !important;
+    }
+    </style>
+    """)
+
+
+    # --- Interactions ---
+    click_img.select(fn=handle_click, inputs=None, outputs=[click_output, monument_dropdown])
+    click_img.select(fn=draw_markers_on_image, inputs=[click_img], outputs=[click_output, click_img, monument_dropdown])
+
     generate_btn.click(
         fn=preview_monument,
         inputs=[monument_dropdown],
-        outputs=[caption_out, image_card],
+        outputs=[caption_out, image_card, image_gallery, gallery_state, gallery_index],
         queue=False
     ).then(
         fn=generate_music_for_monument,
@@ -481,7 +708,9 @@ with gr.Blocks(css=gr_css) as demo:
         queue=True
     )
 
-    # wire toggle button
+    prev_btn.click(fn=prev_image, inputs=[gallery_state, gallery_index], outputs=[image_card, gallery_index])
+    next_btn.click(fn=next_image, inputs=[gallery_state, gallery_index], outputs=[image_card, gallery_index])
+
     toggle_city_btn.click(fn=toggle_city, inputs=[view_state], outputs=[click_img, monument_dropdown, bridge_out, view_state])
 
     # client side bridge: forward Gradio dropdown changes (nearby monuments) to the iframe
