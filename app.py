@@ -2,6 +2,8 @@ import gradio as gr
 from modules.music_generator import generate_music
 from datasets.monuments import load_monuments, match_monument_by_name
 import json, os
+import time
+import requests
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import math
@@ -144,7 +146,7 @@ window.addEventListener('message', (e) => {
 # === Date harta și coordonate ===
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
-search_radius = 0.5
+search_radius = 1
 
 # Timișoara bounding box (used when the app is in Timisoara view)
 # bottom-left = (45.74033907806305, 21.19006057720918)
@@ -223,14 +225,15 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
     lon = lon_min_loc + x_px * (lon_max_loc - lon_min_loc) / w
 
     nearby = []
+    print(dataset_path, "loading monuments for click processing")
     for m in load_monuments(dataset_path):
         if m.get("lat") is None or m.get("lon") is None:
             continue
         if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
             nearby.append(m)
 
-        if not nearby:
-            return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=[])
+    if len(nearby) == 0:
+        return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=[])
 
     try:
         font = ImageFont.truetype("arial.ttf", 16)
@@ -294,15 +297,64 @@ def process_monument_ui(monument_name):
         # images in the datasets are stored relative to the dataset folder
         image = os.path.join("datasets", monument.get("image"))
     # generate up to 15s, prefer loopable output
+    # kept for backward compatibility: generate music and return caption,image,music
     music_path = generate_music(caption, output_path="assets/generated_music.wav", duration_sec=15, loop=True)
     return caption, music_path, image
+
+
+def preview_monument(monument_name):
+    """Fast preview: return caption and image quickly without generating music."""
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
+    dataset_path = "datasets/dataset_timisoara.xml" if is_tm else None
+
+    monument = None
+    for m in load_monuments(dataset_path):
+        if m.get("nume") and monument_name.lower() in m.get("nume").lower():
+            monument = m
+            break
+    if monument is None:
+        monument = match_monument_by_name(monument_name)
+
+    caption = monument.get("descriere", "")
+    image = None
+    if monument.get("image"):
+        image = os.path.join("datasets", monument.get("image"))
+    return caption, image
+
+
+def generate_music_for_monument(monument_name, loop=True, use_local=False):
+    """Generate music (slow) for the selected monument and return the audio file path."""
+    try:
+        is_tm = app_settings.is_timisoara()
+    except Exception:
+        is_tm = False
+    dataset_path = "datasets/dataset_timisoara.xml" if is_tm else None
+
+    monument = None
+    for m in load_monuments(dataset_path):
+        if m.get("nume") and monument_name.lower() in m.get("nume").lower():
+            monument = m
+            break
+    if monument is None:
+        monument = match_monument_by_name(monument_name)
+
+    caption = monument.get("descriere", "")
+    out_path = "assets/generated_music.wav"
+    # generate up to 15s, respect requested looping
+    music_path = generate_music(caption, output_path=out_path, duration_sec=15, loop=bool(loop), use_local=bool(use_local))
+    return music_path
 
 # === Coordonate România ===
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
 search_radius = 0.25
 
-with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);} .card {border-radius:15px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:12px;}") as demo:
+# hide the JSON debug element that Gradio sometimes shows and keep existing styling
+gr_css = "body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);} .card {border-radius:15px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:12px;} .json-formatter-container{display:none!important;}"
+with gr.Blocks(css=gr_css) as demo:
     gr.Markdown("<h1 style='text-align:center;color:#4B0082;'>🎵 Music AI — Harta Interactivă</h1>")
 
     gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
@@ -320,10 +372,12 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     with gr.Row():
         with gr.Column(scale=2):
             # map iframe that can be controlled via postMessage
-            map_iframe = gr.HTML(f"<iframe id='mapframe' src='{map_html_path}' width='100%' height='480' style='border:none;border-radius:12px;'></iframe>")
             image_card = gr.Image(label="Imagine monument", type="filepath")
         with gr.Column():
-            music_out = gr.Audio(label="Muzică generată", autoplay=True)
+            # allow looping by default; we give the component a stable elem_id so JS can toggle the loop attribute
+            music_out = gr.Audio(label="Muzică generată", autoplay=True, elem_id="generated_audio")
+            loop_checkbox = gr.Checkbox(label="Loop muzică", value=True, elem_id="loop_checkbox")
+            use_local_checkbox = gr.Checkbox(label="Use local model (MusicGen)", value=False, elem_id="use_local_checkbox")
             
     caption_out = gr.Textbox(label="Descriere generată", interactive=False, lines=3, max_lines=12, autoscroll=True)
     
@@ -412,30 +466,217 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
         outputs=[click_output, click_img, monument_dropdown]
     )
 
+    # On click: first show a fast preview (caption + image) so the user gets immediate feedback,
+    # then run the slow music generation in the background and update the audio component when ready.
+    # Use Gradio's .then chaining: preview runs immediately, the long task runs queued.
     generate_btn.click(
-        fn=process_monument_ui,
+        fn=preview_monument,
         inputs=[monument_dropdown],
-        outputs=[caption_out, music_out, image_card]
+        outputs=[caption_out, image_card],
+        queue=False
+    ).then(
+        fn=generate_music_for_monument,
+        inputs=[monument_dropdown, loop_checkbox, use_local_checkbox],
+        outputs=[music_out],
+        queue=True
     )
 
     # wire toggle button
     toggle_city_btn.click(fn=toggle_city, inputs=[view_state], outputs=[click_img, monument_dropdown, bridge_out, view_state])
 
     # client side bridge: forward Gradio dropdown changes (nearby monuments) to the iframe
-    js_bridge = f"""
+    js_bridge = """
     <script>
     const iframe = document.getElementById('mapframe');
-    document.addEventListener('gradio:input_changed', (evt) => {{
-        if(!iframe) return;
+
+    function setAudioLoopFromCheckbox(){
+        try{
+            const audio = document.getElementById('generated_audio');
+            const chk = document.getElementById('loop_checkbox');
+            if(audio) audio.loop = chk ? !!chk.checked : true;
+        }catch(e){console.warn('setAudioLoopFromCheckbox error', e);}
+    }
+
+    function attachEndedHandler(){
+        try{
+            const audio = document.getElementById('generated_audio');
+            const chk = document.getElementById('loop_checkbox');
+            if(!audio) return;
+            // remove previous handler if present
+            audio.removeEventListener && audio.removeEventListener('ended', audio._loopHandler || (()=>{}));
+            const handler = () => {
+                try{
+                    const doLoop = chk ? !!chk.checked : true;
+                    if(doLoop){
+                        // restart playback
+                        audio.currentTime = 0;
+                        const p = audio.play();
+                        if(p && p.catch) p.catch(()=>{});
+                    }
+                }catch(e){/* swallow */}
+            };
+            audio._loopHandler = handler;
+            audio.addEventListener && audio.addEventListener('ended', handler);
+        }catch(e){console.warn('attachEndedHandler error', e);}
+    }
+
+    document.addEventListener('gradio:input_changed', (evt) => {
         const target = evt.target;
-        if(target && target.tagName === 'SELECT'){{
+        // forward dropdown (nearby monuments) to iframe
+        if(iframe && target && target.tagName === 'SELECT'){
             const opts = Array.from(target.selectedOptions || []).map(o => o.value);
-            const monuments = opts.map(n => {{ return {{ name: n }} }});
-            iframe.contentWindow.postMessage({{type:'addNearby', monuments}}, '*');
-        }}
-    }});
+            const monuments = opts.map(n => { return { name: n } });
+            iframe.contentWindow.postMessage({type:'addNearby', monuments}, '*');
+        }
+
+        // toggle audio loop when the loop checkbox changes
+        if(target && target.id === 'loop_checkbox'){
+            setAudioLoopFromCheckbox();
+        }
+    });
+
+    // Ensure the audio element is looped by default on initial load
+    window.addEventListener('load', setAudioLoopFromCheckbox);
+
+    // Watch for DOM insertions so we can re-apply loop and re-attach ended handler when Gradio replaces the audio element
+    const observer = new MutationObserver((mutations) => {
+        for(const m of mutations){
+            for(const node of m.addedNodes){
+                if(!node) continue;
+                if(node.id === 'generated_audio'){
+                    setAudioLoopFromCheckbox();
+                    attachEndedHandler();
+                } else if(node.querySelector){
+                    const found = node.querySelector && node.querySelector('#generated_audio');
+                    if(found) setAudioLoopFromCheckbox();
+                }
+            }
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    // Also attach handler on load in case audio already exists
+    window.addEventListener('load', () => { attachEndedHandler(); });
     </script>
     """
     gr.HTML(js_bridge)
+
+# Register a Suno callback on Gradio's FastAPI server so Suno can POST completion data
+try:
+    from fastapi import Request, BackgroundTasks
+    from modules.audio_utils import download_and_convert
+
+    def _bg_process_and_save(items):
+        out_dir = os.path.join("assets", "suno_callback")
+        os.makedirs(out_dir, exist_ok=True)
+        saved = []
+        for i, it in enumerate(items):
+            audio_url = it.get("audio_url") or it.get("stream_audio_url") or it.get("source_audio_url")
+            id_ = it.get("id") or f"suno_{int(time.time())}_{i}"
+            if not audio_url:
+                continue
+            out_path = os.path.join(out_dir, id_ + ".wav")
+            try:
+                download_and_convert(audio_url, out_path)
+                saved.append({"id": id_, "wav": out_path, "audio_url": audio_url})
+            except Exception as e:
+                print("Error downloading/converting callback audio:", e)
+        print("Suno callback background saved:", saved)
+
+    try:
+        # Detect the FastAPI/Starlette app object on the Gradio Blocks instance.
+        server_app = None
+        found_attr = None
+        for name in ("server_app", "app", "_app", "app_app", "B_app", "server"):
+            candidate = getattr(demo, name, None)
+            if candidate is None:
+                continue
+            # If candidate has a .post decorator (FastAPI/Starlette), use it directly
+            if hasattr(candidate, "post"):
+                server_app = candidate
+                found_attr = name
+                break
+            # Sometimes Gradio stores the starlette app under demo.server.app
+            if name == "server":
+                candidate2 = getattr(candidate, "app", None)
+                if candidate2 and hasattr(candidate2, "post"):
+                    server_app = candidate2
+                    found_attr = "server.app"
+                    break
+
+        if server_app is None:
+            raise RuntimeError(f"Could not locate FastAPI/Starlette app on demo (tried attrs). demo attrs: {', '.join(dir(demo)[:30])}")
+
+        print(f"Registering /suno_callback on demo.{found_attr}")
+
+        @server_app.post("/suno_callback")
+        async def suno_callback(request: Request, background_tasks: BackgroundTasks):
+            # optional secret header check
+            secret = os.getenv("SUNO_CALLBACK_SECRET")
+            if secret:
+                hdr = request.headers.get("X-Callback-Token") or request.headers.get("x-callback-token")
+                if not hdr or hdr != secret:
+                    print("Rejected Suno callback: missing/invalid X-Callback-Token header")
+                    return {"error": "forbidden"}, 403
+
+            try:
+                payload = await request.json()
+            except Exception:
+                return {"error": "invalid json"}, 400
+
+            # follow the Flask example shape in your message
+            code = payload.get('code')
+            msg = payload.get('msg')
+            callback_data = payload.get('data', {}) or {}
+            task_id = callback_data.get('task_id')
+            callback_type = callback_data.get('callbackType')
+            music_data = callback_data.get('data') or []
+
+            print(f"Received music generation callback: {task_id}, type: {callback_type}, status: {code}, message: {msg}")
+
+            out_dir = os.path.join("assets", "suno_callback")
+            os.makedirs(out_dir, exist_ok=True)
+
+            if code == 200:
+                print("Music generation completed")
+                print(f"Generated {len(music_data)} music tracks:")
+                for i, music in enumerate(music_data):
+                    print(f"Music {i + 1}:")
+                    print(f"  Title: {music.get('title')}")
+                    print(f"  Duration: {music.get('duration')} seconds")
+                    print(f"  Tags: {music.get('tags')}")
+                    print(f"  Audio URL: {music.get('audio_url')}")
+                    print(f"  Cover URL: {music.get('image_url')}")
+
+                    # Download audio file synchronously (save as mp3)
+                    try:
+                        audio_url = music.get('audio_url')
+                        if audio_url:
+                            r = requests.get(audio_url, stream=True, timeout=60)
+                            r.raise_for_status()
+                            filename = os.path.join(out_dir, f"generated_music_{task_id}_{i + 1}.mp3")
+                            with open(filename, "wb") as fh:
+                                for chunk in r.iter_content(8192):
+                                    if chunk:
+                                        fh.write(chunk)
+                            print(f"Audio saved as {filename}")
+                    except Exception as e:
+                        print(f"Audio download failed: {e}")
+            else:
+                print(f"Music generation failed: {msg}")
+                if code == 400:
+                    print("Parameter error or content violation")
+                elif code == 451:
+                    print("File download failed")
+                elif code == 500:
+                    print("Server internal error")
+
+            # Return 200 status code to confirm callback received
+            return {"status": "received"}
+
+        print("✅ Registered /suno_callback on Gradio server")
+    except Exception as e:
+        print("Could not register Suno callback on Gradio server:", e)
+except Exception:
+    pass
 
 demo.launch(allowed_paths=["."])

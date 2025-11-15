@@ -5,61 +5,11 @@ import os
 import re
 import requests
 import tempfile
+import time
+import numpy as np
 from music_gen.mood import extract_music_mood
 
-# ------------------- Smart Style Inference -------------------
-
 HISTORICAL_KEYWORDS = {
-    # Religious & Sacred
-    "church": ["gregorian choir", "organ cathedral"],
-    "cathedral": ["sacred chanting", "organ cathedral"],
-    "basilica": ["sacred chanting", "church bells"],
-    "monastery": ["monastic choir", "ancient religious music"],
-    "biserica": ["sacred choir", "religious organ"],
-    "orthodox": ["byzantine choir", "liturgical chants"],
-    "catholic": ["gregorian choir", "classical chamber"],
-
-    # Royal & Aristocratic
-    "castle": ["epic orchestral", "noble horns"],
-    "palace": ["baroque chamber strings", "classical orchestra"],
-    "royal": ["regal brass", "orchestral march"],
-    "queen": ["harpsichord", "baroque elegance"],
-    "king": ["royal horns", "heroic march"],
-    "court": ["renaissance ensemble", "lute strings"],
-    "noble": ["romantic orchestra", "grand piano"],
-
-    # Medieval & Fortified
-    "fortress": ["war drums", "heroic brass"],
-    "citadel": ["battle percussion", "deep brass"],
-    "battlements": ["war horns", "marching drums"],
-    "sword": ["battle percussion"],
-    "knight": ["medieval horns", "epic battle score"],
-    "gate tower": ["timpani", "marching brass"],
-    "siege": ["dramatic percussion"],
-
-    # Ancient Civilizations
-    "ancient": ["tribal percussion", "flutes"],
-    "roman": ["imperial horns", "ancient percussion"],
-    "dacian": ["tribal drums", "ancestral flutes"],
-    "temple": ["mystical flute", "ancient strings"],
-    "ruins": ["dark ambient", "eerie strings"],
-
-    # Architecture & Styles
-    "gothic": ["church organ", "dark choir"],
-    "baroque": ["harpsichord", "baroque strings"],
-    "renaissance": ["lutes", "soft classical strings"],
-    "neoclassical": ["chamber orchestra", "violin ensemble"],
-    "eclectic": ["romantic orchestra"],
-    "modernist": ["minimalist piano", "ambient electronics"],
-
-    # War & Heroic
-    "battle": ["war drums", "epic brass"],
-    "memorial": ["emotional orchestra", "string elegy"],
-    "victory": ["heroic fanfare", "triumphal brass"],
-    "triumph": ["grand fanfare"],
-
-    # Culture & Museums
-    "museum": ["soft classical", "ambient modern classical"],
     "art": ["piano minimal", "orchestral textures"],
     "concert": ["grand orchestra", "acoustic strings"],
     "theatre": ["dramatic score"],
@@ -201,8 +151,6 @@ def _generate_music_local(caption: str, style: str = "", output_path="generated.
     # Move to device
     tokens = {k: v.to(device) for k, v in tokens.items()}
 
-    import numpy as np
-
     # Number of chunks: conservative (each chunk ~5s)
     num_chunks = max(1, int(np.ceil(duration_sec / 5)))
     chunk_max_length = 100
@@ -230,46 +178,127 @@ def _generate_music_local(caption: str, style: str = "", output_path="generated.
 
 
 def _generate_music_suno(caption: str, output_path: str, duration_sec: int = 15, loop: bool = True):
-    """Attempt to generate music using Suno through an HTTP API.
+    """Send prompt to Suno and return a path to the generated audio file.
 
-    This function expects environment variables SUNO_API_KEY and optionally SUNO_API_URL.
-    If not configured or if the call fails, it will raise an exception and the caller
-    should fall back to the local generator.
-    NOTE: This is an integration helper — adapt the endpoint/payload to match Suno's
-    real API (this module doesn't hardcode confidential credentials).
+    Handles three common Suno response styles:
+    - Direct binary audio (wav/mp3) in the HTTP response body.
+    - JSON with an audio URL (key: "audio_url" or "url").
+    - JSON with an async job id (key: "jobId"/"taskId"/"id") which requires polling a record-info endpoint.
+
+    The function will download and, if necessary, convert audio to WAV (16k mono) and return the file path.
     """
     duration_sec = min(int(duration_sec), 15)
     api_key = os.getenv("SUNO_API_KEY")
-    api_url = os.getenv("SUNO_API_URL", "https://api.suno.ai/v1/generate")
+    api_url = os.getenv("SUNO_API_URL", "https://api.sunoapi.org/api/v1/generate")
     if not api_key:
         raise RuntimeError("SUNO_API_KEY not set")
 
-    # build an enriched prompt for Suno using the monument description
     enriched = build_enriched_prompt(caption)
-    # show the final prompt that will be sent to Suno
     print("➡️ Suno prompt:\n" + enriched)
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {
-        "prompt": enriched,
-        "duration_seconds": duration_sec,
-        "format": "wav",
-        "loop": bool(loop)
-    }
 
-    print("➡️ Sending generation request to Suno (via HTTP)")
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    payload = {"prompt": enriched[0:499], 
+                "duration_seconds": duration_sec, 
+                "customMode": True,
+                "instrumental": True,
+                "personaId": "persona_123",
+                "model": "V3_5",
+                "negativeTags": "Heavy Metal, Upbeat Drums",
+                "vocalGender": "m",
+                "styleWeight": 0.65,
+                "weirdnessConstraint": 0.65,
+                "audioWeight": 0.65,
+                "format": "wav", 
+                "loop": bool(loop)}
+
+    # Allow callers to specify a public callback URL via env var SUNO_CALLBACK_URL
+    callback_url = os.getenv("SUNO_CALLBACK_URL")
+    print("Suno callback URL:", callback_url)
+    if callback_url:
+        payload["callBackUrl"] = callback_url
+    else:
+        print("⚠️ SUNO_CALLBACK_URL not set; proceeding without callback URL.")
     resp = requests.post(api_url, json=payload, headers=headers, timeout=60)
     if resp.status_code != 200:
         raise RuntimeError(f"Suno API error: {resp.status_code} {resp.text}")
 
-    # Expect binary WAV bytes in response
-    content_type = resp.headers.get("Content-Type", "")
-    if "audio" in content_type or resp.content:
-        with open(output_path, "wb") as f:
-            f.write(resp.content)
-        print(f"✅ Suno-generated music saved to {output_path}")
-        return output_path
+    # After sending the request we prefer to receive Suno's callback (saved under assets/suno_callback).
+    # Wait up to `wait_secs` seconds for a callback file to appear; if none arrives, fall back to local generation.
+    wait_secs = int(os.getenv("SUNO_CALLBACK_WAIT", "5"))
+    cb_dir = os.path.join("assets", "suno_callback")
+    os.makedirs(cb_dir, exist_ok=True)
+
+    # snapshot before files so we can detect new ones
+    before_files = set(os.listdir(cb_dir))
+
+    # helper: check immediate response for audio URL or binary
+    try:
+        j = resp.json()
+    except Exception:
+        j = None
+
+    # if Suno returned an immediate audio URL in the response JSON, download it and return
+    if isinstance(j, dict):
+        audio_url = j.get("audio_url") or j.get("url") or None
+        task_id = j.get("taskId") or j.get("jobId") or j.get("id") or None
+        if audio_url:
+            try:
+                from modules.audio_utils import download_and_convert
+                return download_and_convert(audio_url, output_path)
+            except Exception as e:
+                print("Failed to download audio_url from Suno response:", e)
+
     else:
-        raise RuntimeError("Suno response did not contain audio data")
+        # If binary audio returned directly in HTTP body, save and return
+        if resp.content:
+            try:
+                with open(output_path, "wb") as f:
+                    f.write(resp.content)
+                print(f"✅ Suno-generated music saved to {output_path} (direct response)")
+                return output_path
+            except Exception as e:
+                print("Failed to write direct Suno response to disk:", e)
+
+    # If we have a task_id, prefer to look for files containing that id; otherwise watch for any new file
+    search_for = None
+    if isinstance(j, dict):
+        search_for = j.get("taskId") or j.get("jobId") or j.get("id")
+
+    print(f"Waiting up to {wait_secs}s for Suno callback files in {cb_dir}...")
+    start = time.time()
+    found_path = None
+    while time.time() - start < wait_secs:
+        try:
+            files = os.listdir(cb_dir)
+        except Exception:
+            files = []
+
+        # if we have a task id, match files containing it
+        if search_for:
+            matches = [f for f in files if search_for in f]
+            if matches:
+                # pick the most recent match
+                matches.sort(key=lambda p: os.path.getmtime(os.path.join(cb_dir, p)))
+                found_path = os.path.join(cb_dir, matches[-1])
+                break
+
+        # otherwise detect any new file created after our snapshot
+        new = [f for f in files if f not in before_files]
+        if new:
+            new.sort(key=lambda p: os.path.getmtime(os.path.join(cb_dir, p)))
+            found_path = os.path.join(cb_dir, new[-1])
+            break
+
+        time.sleep(1)
+
+    if found_path:
+        print(f"➡️ Found callback-generated file: {found_path}")
+        return found_path
+
+    # No callback arrived in time -> fall back to local generator
+    print(f"⚠️ No Suno callback received within {wait_secs}s; falling back to local generation.")
+    return _generate_music_local(caption, style="", output_path=output_path, duration_sec=duration_sec, loop=loop)
 
 
 def _generate_music_via_copilot(caption: str, output_path: str, duration_sec: int = 15, loop: bool = True):
@@ -300,27 +329,37 @@ def _generate_music_via_copilot(caption: str, output_path: str, duration_sec: in
     raise RuntimeError("Copilot bridge did not return audio data")
 
 
-def generate_music(caption: str, style: str = "", output_path="generated.wav", duration_sec: int = 15, loop: bool = True):
-    """Wrapper generator: prefer Suno if API key is present, otherwise use local MusicGen fallback.
+def generate_music(caption: str, style: str = "", output_path="generated.wav", duration_sec: int = 15, loop: bool = True, use_local: bool = False):
+    """Wrapper generator.
 
-    Keeps the same signature but adds optional `loop` control.
+    If `use_local` is True, force the local MusicGen fallback. Otherwise prefer Copilot bridge -> Suno -> local fallback
+    depending on environment configuration. The `loop` flag is passed to downstream generators.
     """
     duration_sec = min(int(duration_sec), 15)
+
+    # If the user explicitly requested the local model, call it directly
+    if use_local:
+        return _generate_music_local(caption, style=style, output_path=output_path, duration_sec=duration_sec, loop=loop)
 
     # try Copilot bridge first (if configured), then Suno, then local fallback
     try:
         if os.getenv("COPILOT_BRIDGE_URL"):
-            return _generate_music_via_copilot(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+            aux = _generate_music_via_copilot(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+            print ("Using Copilot bridge for music generation")
+            return aux
     except Exception as e:
         print(f"⚠️ Copilot bridge failed: {e}. Trying Suno directly...")
 
     try:
         if os.getenv("SUNO_API_KEY"):
-            return _generate_music_suno(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+            aux = _generate_music_suno(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+            print("Using Suno for music generation")
+            return aux
     except Exception as e:
         print(f"⚠️ Suno generation failed: {e}. Falling back to local generator.")
 
     # local fallback
+    print("➡️ Using local MusicGen generator as fallback.")
     return _generate_music_local(caption, style=style, output_path=output_path, duration_sec=duration_sec, loop=loop)
 
 
