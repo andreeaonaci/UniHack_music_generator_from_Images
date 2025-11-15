@@ -17,60 +17,16 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GOOGLE_SA_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
 def _call_gemini_rest(prompt: str, model: str = "models/gemini-1.0") -> str:
-    """Call the Google Generative Language REST endpoint using either a
-    service account (via GOOGLE_APPLICATION_CREDENTIALS) or an API key
-    (GEMINI_API_KEY). Returns the generated text or raises on failure.
-    """
-    # Try the requested model first, then fall back to known-working models
+    """Call Gemini via REST or Google SA."""
     url_template = "https://generativelanguage.googleapis.com/v1beta2/{model}:generateText"
-    candidate_models = [model]
-    for fm in ("models/gemini-1.0", "models/text-bison-001", "models/chat-bison-001"):
-        if fm not in candidate_models:
-            candidate_models.append(fm)
+    candidate_models = [model] + [m for m in ("models/gemini-1.0","models/text-bison-001","models/chat-bison-001") if m != model]
 
     last_error = None
-    # helper to parse a successful response
+
     def _parse_response(resp):
         data = resp.json()
-
-        if isinstance(data, dict):
-            if "candidates" in data and isinstance(data["candidates"], list) and len(data["candidates"])>0:
-                first = data["candidates"][0]
-                if isinstance(first, dict):
-                    if "content" in first:
-                        return first["content"].strip()
-                    if "output" in first and isinstance(first["output"], list):
-                        parts = []
-                        for item in first["output"]:
-                            if isinstance(item, dict) and "content" in item:
-                                parts.append(item["content"])
-                        if parts:
-                            return "".join(parts).strip()
-
-        def find_text(obj):
-            if isinstance(obj, str):
-                return obj
-            if isinstance(obj, dict):
-                for k in ("text","content","output","candidates","result"):
-                    if k in obj:
-                        res = find_text(obj[k])
-                        if res:
-                            return res
-                for v in obj.values():
-                    res = find_text(v)
-                    if res:
-                        return res
-            if isinstance(obj, list):
-                for it in obj:
-                    res = find_text(it)
-                    if res:
-                        return res
-            return None
-
-        text = find_text(data)
-        if text:
-            return text.strip()
-
+        if "candidates" in data and data["candidates"]:
+            return data["candidates"][0].get("content", "").strip()
         return json.dumps(data)
 
     for m in candidate_models:
@@ -88,61 +44,29 @@ def _call_gemini_rest(prompt: str, model: str = "models/gemini-1.0") -> str:
             elif GEMINI_API_KEY:
                 params["key"] = GEMINI_API_KEY
             else:
-                raise RuntimeError("No Google credentials found: set GOOGLE_APPLICATION_CREDENTIALS or GEMINI_API_KEY")
+                raise RuntimeError("No Google credentials found.")
 
-            payload = {
-                "prompt": {"text": prompt},
-                "temperature": 0.7,
-                "maxOutputTokens": 150
-            }
-
+            payload = {"prompt": {"text": prompt}, "temperature":0.7, "maxOutputTokens":150}
             resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
-
-            # If a model isn't available for the project, the API returns 404.
             if resp.status_code == 404:
                 last_error = resp
-                # try next candidate model
                 continue
-
             resp.raise_for_status()
-
             return _parse_response(resp)
-
-        except requests.RequestException as e:
-            last_error = e
-            # try next candidate
-            continue
         except Exception as e:
             last_error = e
             continue
 
-    # If we exhausted candidates, raise a helpful error including last response/text
-    msg = None
-    if isinstance(last_error, requests.Response):
-        try:
-            body = last_error.text
-        except Exception:
-            body = "<unable to read response body>"
-        msg = f"Gemini REST call failed: {last_error.status_code} - {body}"
-    else:
-        msg = f"Gemini REST call failed: {last_error}"
+    raise RuntimeError(f"Gemini REST call failed: {last_error}")
 
-    msg += (
-        "\nTried models: " + ", ".join(candidate_models) +
-        ".\nIf you intended to use Gemini ensure the model name is correct and the Generative API is enabled for your project, or set a valid GEMINI_API_KEY / GOOGLE_APPLICATION_CREDENTIALS.\n"
-    )
-    raise RuntimeError(msg)
-
-# from openai import OpenAI
-
-# --- Auth0 ---
+# --- Auth0 setup ---
 AUTH0_DOMAIN = os.environ.get("AUTH0_DOMAIN")
 AUTH0_CLIENT_ID = os.environ.get("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = os.environ.get("AUTH0_CLIENT_SECRET")
 AUTH0_AUDIENCE = os.environ.get("AUTH0_AUDIENCE") or f"https://{AUTH0_DOMAIN}/api/v2/"
 
 def get_auth0_token():
-    """Obține token Auth0 pentru a autentifica requestul trivia"""
+    """Obține token Auth0 pentru autentificarea request-ului."""
     url = f"https://{AUTH0_DOMAIN}/oauth/token"
     payload = {
         "client_id": AUTH0_CLIENT_ID,
@@ -150,82 +74,52 @@ def get_auth0_token():
         "audience": AUTH0_AUDIENCE,
         "grant_type": "client_credentials"
     }
-    res = requests.post(url, json=payload)
+    res = requests.post(url, json=payload, timeout=10)
     res.raise_for_status()
     return res.json()["access_token"]
 
-# --- Trivia secured ---
 def generate_trivia(monument_name, description):
     """
-    Generate a trivia question using Gemini API via ChatSession.
-
-    This function attempts, in order:
-      1) Call a TRIVIA_PROXY_URL (server-side proxy that may use Auth0 for authentication).
-      2) Call Gemini API via ChatSession if GEMINI_API_KEY is set.
-      3) Call OpenAI if OPENAI_API_KEY is set.
-
-    If all fail, raises RuntimeError.
+    Folosește Auth0 pentru autentificare și apelează Gemini pentru generare trivia.
     """
-    prompt = f"Formulează o întrebare trivia distractivă despre monumentul {monument_name}: {description} care să înceapă cu „Știați că...?” și să fie sub 150 de caractere. Întrebarea trebuie să fie concisă și captivantă și sub forma unei curiozități."
+    prompt = (
+        f"Formulează o întrebare trivia distractivă despre monumentul {monument_name}: "
+        f"{description} care să înceapă cu „Știați că...?” și să fie sub 150 de caractere. Nu printa si numărul de caractere în răspuns, doar întrebarea."
+    )
 
-    # 1) Try TRIVIA_PROXY_URL
-    # proxy_url = os.environ.get("TRIVIA_PROXY_URL")
-    # if proxy_url:
-    #     token = None
-    #     try:
-    #         token = get_auth0_token()
-    #     except Exception as e:
-    #         print(f"Auth0 token unavailable for proxy request: {e}")
+    try:
+        token = get_auth0_token()
+        print("Successfully authenticated!")
+    except Exception as e:
+        raise RuntimeError(f"Auth0 authentication failed: {e}")
 
-    #     headers = {"Content-Type": "application/json"}
-    #     if token:
-    #         headers["Authorization"] = f"Bearer {token}"
+    # 2) Încearcă Gemini
+    try:
+        client = genai.Client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        return response.text.strip()
+    except Exception as gemini_error:
+        print(f"Gemini API failed: {gemini_error}. Falling back to OpenAI...")
 
-    #     try:
-    #         resp = requests.post(proxy_url, json={"monument": monument_name, "description": description, "prompt": prompt}, headers=headers, timeout=15)
-    #         resp.raise_for_status()
-    #         try:
-    #             data = resp.json()
-    #             if isinstance(data, dict):
-    #                 return data.get("trivia") or data.get("text") or data.get("result") or str(data)
-    #             return str(data)
-    #         except ValueError:
-    #             return resp.text.strip()
-    #     except Exception as e:
-    #         print(f"TRIVIA_PROXY_URL request failed: {e}")
+    # 3) Fallback la OpenAI
+    openai_api_key = os.environ.get("OPENAI_API_KEY")
+    if not openai_api_key:
+        raise RuntimeError("No OPENAI_API_KEY found for fallback after Gemini failure.")
 
-    # 2) Try Gemini API via ChatSession
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if gemini_key:
-        try:
-
-            client = genai.Client()
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-
-            # obține textul generat
-            return response.text.strip()
-
-        except Exception as e:
-            raise RuntimeError(f"Gemini API error: {e}")
-
-
-    # Fallback OpenAI dacă Gemini nu funcționează
-    # if OPENAI_API_KEY:
-    #     try:
-    #         client = OpenAI(api_key=OPENAI_API_KEY)
-    #         response = client.chat.completions.create(
-    #             model="gpt-4.1-mini",
-    #             messages=[{"role": "user", "content": prompt}]
-    #         )
-    #         return response.choices[0].message.content.strip()
-    #     except Exception as e:
-    #         print(f"generate_trivia failed: OpenAI call failed: {e}")
-
-    # Fallback generic
-    return f"(Trivia nu a putut fi generată pentru {monument_name})"
+    try:
+        openai.api_key = openai_api_key
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=150
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        raise RuntimeError(f"OpenAI fallback failed: {e}")
     
 def generate_trivia_with_fallback(monument_name, description):
     """UI-friendly wrapper: call generate_trivia and fall back to a harmless mocked
@@ -460,8 +354,8 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
         if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
             nearby.append(m)
 
-        if not nearby:
-            return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=None)
+    if len(nearby) == 0:
+        return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=None)
 
     try:
         font = ImageFont.truetype("arial.ttf", 16)
@@ -578,7 +472,6 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
     with gr.Row():
         with gr.Column(scale=2):
             # map iframe that can be controlled via postMessage
-            map_iframe = gr.HTML(f"<iframe id='mapframe' src='{map_html_path}' width='100%' height='480' style='border:none;border-radius:12px;'></iframe>")
             image_card = gr.Image(label="Imagine monument", type="filepath")
         with gr.Column():
             music_out = gr.Audio(label="Muzică generată", autoplay=True)
