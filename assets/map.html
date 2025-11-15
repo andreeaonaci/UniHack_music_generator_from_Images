@@ -104,6 +104,40 @@ window.addEventListener('message', (e) => {
         }
     }
 });
+    </script>
+    <script>
+    // Helper to remove diacritics so city matching is robust
+    function normalizeText(s){
+        try{
+            return s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+        }catch(e){
+            return (s||'').toLowerCase();
+        }
+    }
+
+    window.addEventListener('message', (e) => {
+        if(!e.data) return;
+        if(e.data.type === 'addNearby'){
+            addNearbyMarkers(e.data.monuments);
+        }else if(e.data.type === 'setCity'){
+            const city = e.data.city || '';
+            if(!city){
+                // show all
+                createMarkersFromList(markers);
+                map.setView([45.94,24.97],7);
+            } else {
+                const cityNorm = normalizeText(city);
+                const filtered = markers.filter(m => normalizeText(m.localitate || '').includes(cityNorm));
+                if(filtered.length>0){
+                    createMarkersFromList(filtered);
+                    map.setView([filtered[0].lat, filtered[0].lon], 12);
+                } else {
+                    // no matches -> clear and center
+                    clearAppMarkers();
+                }
+            }
+        }
+    });
 </script>
 </body>
 </html>
