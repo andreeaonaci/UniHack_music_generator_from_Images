@@ -229,9 +229,8 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
         if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
             nearby.append(m)
 
-    if not nearby:
-        print(f"[CLICK] Mode: {'Timisoara' if is_tm else 'Romania'}; Click: ({lat:.5f}, {lon:.5f}) - 0 monumente")
-        return (f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=[]))
+        if not nearby:
+            return f"Click: ({lat:.5f}, {lon:.5f}) - 0 monumente", img, gr.update(choices=[], value=[])
 
     try:
         font = ImageFont.truetype("arial.ttf", 16)
@@ -266,7 +265,6 @@ def draw_markers_on_image(evt: gr.SelectData, img_input):
         draw.text((mx, my), text, font=font, fill=(0,0,0,255), anchor="mm")
 
     nearby_names = [m["nume"] for m in nearby]
-    print(f"[CLICK] Mode: {'Timisoara' if is_tm else 'Romania'} | Click: ({lat:.5f}, {lon:.5f}) - {len(nearby)} monumente")
     return f"Click: ({lat:.5f}, {lon:.5f}) - {len(nearby)} monumente", img, gr.update(choices=nearby_names, value=[])
 
 # === Procesare monument UI existent ===
@@ -295,7 +293,8 @@ def process_monument_ui(monument_name):
     if monument.get("image"):
         # images in the datasets are stored relative to the dataset folder
         image = os.path.join("datasets", monument.get("image"))
-    music_path = generate_music(caption, output_path="assets/generated_music.wav")
+    # generate up to 15s, prefer loopable output
+    music_path = generate_music(caption, output_path="assets/generated_music.wav", duration_sec=15, loop=True)
     return caption, music_path, image
 
 # === Coordonate România ===
@@ -304,14 +303,14 @@ lon_min, lon_max = 20.26, 29.65
 search_radius = 0.25
 
 with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);} .card {border-radius:15px;box-shadow:0 8px 20px rgba(0,0,0,0.18);padding:12px;}") as demo:
-    gr.Markdown("<h1 style='text-align:center;color:#4B0082;'>🎵 Monument History AI — Harta Interactivă</h1>")
+    gr.Markdown("<h1 style='text-align:center;color:#4B0082;'>🎵 Music AI — Harta Interactivă</h1>")
 
     gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
     gr.Markdown("Apasă un marker pe hartă sau click pe harta statică pentru coordonate.")
     click_img = gr.Image(value="assets/harta_romaniei.jpg", interactive=True)
     click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2)
     monument_dropdown = gr.Dropdown(choices=monuments_list, label="Selectează monument")
-    generate_btn = gr.Button("🎶 Generează muzică")
+    generate_btn = gr.Button("🎶 Music AI — Generează muzică")
     # hidden bridge HTML to send messages to iframe when updated
     bridge_out = gr.HTML("", visible=False)
     # state to keep track of current view: 'ro' or 'tm'
@@ -364,8 +363,7 @@ with gr.Blocks(css="body {background: linear-gradient(to right,#f0f4ff,#d9e4ff);
             if abs(m["lat"] - lat) <= radius_use and abs(m["lon"] - lon) <= radius_use:
                 nearby_monuments.append(m)
         nearby_names = [m["nume"] for m in nearby_monuments]
-        mode_name = "Timișoara" if is_tm else "Romania"
-        print(f"[CLICK] Mode: {mode_name} | Click: ({lat:.5f}, {lon:.5f}) — {len(nearby_monuments)} monumente")
+    # mode_name = "Timișoara" if is_tm else "Romania"
         return f"Click: ({lat:.5f}, {lon:.5f}) — {len(nearby_monuments)} monumente", gr.update(choices=nearby_names, value=[])
     def toggle_city(state):
         """Toggle between Romania map and Timisoara map. Returns (image_path, dropdown_update, bridge_html, new_state)"""

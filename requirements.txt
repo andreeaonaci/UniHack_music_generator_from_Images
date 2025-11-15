@@ -6,3 +6,4 @@ soundfile
 torchaudio
 wikipedia
 googl
+requests

@@ -3,6 +3,9 @@ import torch
 import scipy.io.wavfile
 import os
 import re
+import requests
+import tempfile
+from music_gen.mood import extract_music_mood
 
 # ------------------- Smart Style Inference -------------------
 
@@ -159,10 +162,13 @@ def normalize_ro(text: str) -> str:
     pattern = re.compile("|".join(re.escape(k) for k in replacements.keys()))
     return pattern.sub(lambda m: replacements[m.group(0)], text)
 
-def generate_music(caption: str, style: str = "", output_path="generated.wav", duration_sec: int = 15):
+def _generate_music_local(caption: str, style: str = "", output_path="generated.wav", duration_sec: int = 10, loop: bool = True):
+    """Legacy local MusicGen-based generator (kept as a fallback).
+
+    Produces a WAV file at `output_path`. Ensures duration_sec <= 10.
+    If `loop` is True and the generated audio is shorter than requested, it will tile it to reach the target length.
     """
-    Generate music from a text caption using MusicGen.
-    """
+    duration_sec = min(int(duration_sec), 10)
 
     # Normalize Romanian diacritics
     caption_norm = normalize_ro(caption)
@@ -186,65 +192,169 @@ def generate_music(caption: str, style: str = "", output_path="generated.wav", d
     print("🎼 Selected style:", final_style)
 
     prompt = f"Music for a historical monument: {caption_en}. Style: {final_style}. Cinematic atmosphere, cultural heritage."
-
-    print("Prompt before fallback:", prompt)
-
-    # Make sure prompt is not empty
-    if len(prompt.strip()) == 0:
-        prompt = "Cinematic music."
-        print("Prompt was empty, using fallback:", prompt)
+    # show the final prompt that will be used by the local MusicGen generator
+    print("➡️ Local generator prompt:\n" + prompt)
 
     # Tokenize (no manual padding)
     tokens = processor.tokenizer(prompt, return_tensors="pt")
 
-    # Diagnostic prints
-    print("Tokens input_ids shape:", tokens.input_ids.shape)
-    print("Tokens input_ids:", tokens.input_ids)
-
-    # Check if tokenizer returned 0 tokens
-    if tokens.input_ids.shape[1] == 0:
-        print("⚠️ Tokenizer returned 0 tokens, using minimal fallback.")
-        tokens = processor.tokenizer("Cinematic music.", return_tensors="pt")
-        print("Tokens input_ids after fallback shape:", tokens.input_ids.shape)
-        print("Tokens input_ids after fallback:", tokens.input_ids)
-
-    if tokens.input_ids.shape[1] == 0:
-        raise ValueError("Tokenizer failed to produce any tokens. Please use a non-empty prompt.")
-
     # Move to device
     tokens = {k: v.to(device) for k, v in tokens.items()}
 
-    # Compute max_length safely
-    frame_rate = getattr(model.config.audio_encoder, "frame_rate", None)
-    if frame_rate is None or frame_rate == 0:
-        print("⚠️ frame_rate not set in config, using default 16000")
-        frame_rate = 16000
-
-    max_length = max(1, int(duration_sec * frame_rate / 1024))
-    print("valori ", duration_sec, frame_rate)
-    print("Max length for generation:", max_length)
     import numpy as np
-    chunk_max_length = 100  # fiecare chunk ~10 secunde (poți ajusta)
+
+    # Number of chunks: conservative (each chunk ~5s)
     num_chunks = max(1, int(np.ceil(duration_sec / 5)))
-    print("Num chunks:", num_chunks)
+    chunk_max_length = 100
 
     all_audio = []
-
     for i in range(num_chunks):
-        print(f"🎵 Generating chunk {i+1}/{num_chunks}...")
+        print(f"🎵 Generating chunk {i+1}/{num_chunks} (local)...")
         audio_chunk = model.generate(**tokens, max_length=chunk_max_length)
-
         if hasattr(audio_chunk, "cpu"):
             audio_chunk = audio_chunk.cpu().numpy()
-
         all_audio.append(audio_chunk.reshape(-1))
 
     final_audio = np.concatenate(all_audio)
-
     target_len = int(16000 * duration_sec)
-    final_audio = final_audio[:target_len]
+    if final_audio.shape[0] < target_len and loop and final_audio.shape[0] > 0:
+        # tile audio to reach target length
+        repeats = int(np.ceil(target_len / final_audio.shape[0]))
+        final_audio = np.tile(final_audio, repeats)[:target_len]
+    else:
+        final_audio = final_audio[:target_len]
 
     scipy.io.wavfile.write(output_path, 16000, final_audio.astype(np.float32))
-    print(f"✅ Music generated: {output_path}")
-
+    print(f"✅ Local Music generated: {output_path}")
     return output_path
+
+
+def _generate_music_suno(caption: str, output_path: str, duration_sec: int = 15, loop: bool = True):
+    """Attempt to generate music using Suno through an HTTP API.
+
+    This function expects environment variables SUNO_API_KEY and optionally SUNO_API_URL.
+    If not configured or if the call fails, it will raise an exception and the caller
+    should fall back to the local generator.
+    NOTE: This is an integration helper — adapt the endpoint/payload to match Suno's
+    real API (this module doesn't hardcode confidential credentials).
+    """
+    duration_sec = min(int(duration_sec), 15)
+    api_key = os.getenv("SUNO_API_KEY")
+    api_url = os.getenv("SUNO_API_URL", "https://api.suno.ai/v1/generate")
+    if not api_key:
+        raise RuntimeError("SUNO_API_KEY not set")
+
+    # build an enriched prompt for Suno using the monument description
+    enriched = build_enriched_prompt(caption)
+    # show the final prompt that will be sent to Suno
+    print("➡️ Suno prompt:\n" + enriched)
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payload = {
+        "prompt": enriched,
+        "duration_seconds": duration_sec,
+        "format": "wav",
+        "loop": bool(loop)
+    }
+
+    print("➡️ Sending generation request to Suno (via HTTP)")
+    resp = requests.post(api_url, json=payload, headers=headers, timeout=60)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Suno API error: {resp.status_code} {resp.text}")
+
+    # Expect binary WAV bytes in response
+    content_type = resp.headers.get("Content-Type", "")
+    if "audio" in content_type or resp.content:
+        with open(output_path, "wb") as f:
+            f.write(resp.content)
+        print(f"✅ Suno-generated music saved to {output_path}")
+        return output_path
+    else:
+        raise RuntimeError("Suno response did not contain audio data")
+
+
+def _generate_music_via_copilot(caption: str, output_path: str, duration_sec: int = 15, loop: bool = True):
+    """Optionally send the caption to a Copilot bridge which handles forwarding to Suno.
+
+    The bridge endpoint URL can be configured via COPILOT_BRIDGE_URL. The bridge is
+    expected to accept JSON {"text": <str>, "duration": <int>} and return WAV bytes.
+    This allows integration with Copilot workflows that orchestrate Suno on your behalf.
+    """
+    bridge_url = os.getenv("COPILOT_BRIDGE_URL")
+    if not bridge_url:
+        raise RuntimeError("COPILOT_BRIDGE_URL not set")
+
+    # send both raw text and enriched prompt to the bridge so it can orchestrate
+    enriched = build_enriched_prompt(caption)
+    # show the final prompt that will be sent to the Copilot bridge
+    print("➡️ Copilot bridge prompt:\n" + enriched)
+    payload = {"text": caption, "prompt": enriched, "duration": int(min(duration_sec, 15)), "loop": bool(loop)}
+    print("➡️ Sending prompt to Copilot bridge:", bridge_url)
+    resp = requests.post(bridge_url, json=payload, timeout=60)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Copilot bridge error: {resp.status_code} {resp.text}")
+    if resp.content:
+        with open(output_path, "wb") as f:
+            f.write(resp.content)
+        print(f"✅ Copilot-bridged music saved to {output_path}")
+        return output_path
+    raise RuntimeError("Copilot bridge did not return audio data")
+
+
+def generate_music(caption: str, style: str = "", output_path="generated.wav", duration_sec: int = 15, loop: bool = True):
+    """Wrapper generator: prefer Suno if API key is present, otherwise use local MusicGen fallback.
+
+    Keeps the same signature but adds optional `loop` control.
+    """
+    duration_sec = min(int(duration_sec), 15)
+
+    # try Copilot bridge first (if configured), then Suno, then local fallback
+    try:
+        if os.getenv("COPILOT_BRIDGE_URL"):
+            return _generate_music_via_copilot(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+    except Exception as e:
+        print(f"⚠️ Copilot bridge failed: {e}. Trying Suno directly...")
+
+    try:
+        if os.getenv("SUNO_API_KEY"):
+            return _generate_music_suno(caption, output_path=output_path, duration_sec=duration_sec, loop=loop)
+    except Exception as e:
+        print(f"⚠️ Suno generation failed: {e}. Falling back to local generator.")
+
+    # local fallback
+    return _generate_music_local(caption, style=style, output_path=output_path, duration_sec=duration_sec, loop=loop)
+
+
+def build_enriched_prompt(caption: str, style: str = "") -> str:
+    """Create an English, enriched prompt suitable for ambient music generation.
+
+    Steps:
+    - normalize Romanian diacritics
+    - translate to English when possible
+    - ask a lightweight mood model to extract musical mood/instrument suggestions
+    - combine with inferred style keywords to form a descriptive prompt
+    """
+    # normalize
+    caption_norm = normalize_ro(caption or "")
+
+    # translate to English if available
+    if TRANSLATE_AVAILABLE:
+        try:
+            caption_en = GoogleTranslator(source='ro', target='en').translate(caption_norm)
+        except Exception:
+            caption_en = caption_norm
+    else:
+        caption_en = caption_norm
+
+    # ask the mood model for a short music prompt (may be <15 words)
+    try:
+        mood = extract_music_mood(caption_en)
+    except Exception:
+        mood = infer_monument_style(caption_en)
+
+    extra_style = style if style else infer_monument_style(caption_en)
+
+    final_prompt = (
+        f"{caption_en}. Create a short ambient piece (max 15 seconds) for this monument. "
+        f"Mood: {mood}. Instruments/Style: {extra_style}. Characteristics: gentle evolving pads, soft reverb, low-pass textures, slow tempo (~40-70 BPM), subtle field ambience, minimal or no percussion, no vocals. Emphasize the architectural and cultural atmosphere of the site."
+    )
+    return final_prompt
