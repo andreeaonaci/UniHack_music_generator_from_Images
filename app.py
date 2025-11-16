@@ -381,7 +381,7 @@ def generate_music_for_monument(monument_name, loop=True, use_local=False):
 
     monument = None
     for m in load_monuments(dataset_path):
-        if m.get("nume") and monument_name.lower() in m.get("nume").lower():
+        if m.get("nume") and (monument_name in m.get("nume")):
             monument = m
             break
     if monument is None:
@@ -390,13 +390,13 @@ def generate_music_for_monument(monument_name, loop=True, use_local=False):
     caption = monument.get("descriere", "")
     out_path = "assets/generated_music.wav"
     # generate up to 15s, respect requested looping
-    music_path = generate_music(caption, output_path=out_path, duration_sec=15, loop=bool(loop), use_local=bool(use_local))
+    music_path = generate_music(caption, output_path=out_path, duration_sec=10, loop=bool(loop), use_local=bool(use_local))
     return music_path
 
 # === Coordonate România ===
 lat_max, lat_min = 48.27, 43.63
 lon_min, lon_max = 20.26, 29.65
-search_radius = 0.25
+search_radius = 0.3
 
 
 # click handler: compute nearby monuments from a click event on the static map image
@@ -547,9 +547,9 @@ with gr.Blocks(css=gr_css) as demo:
 
     # --- Map Interaction ---
     with gr.Column(scale=1):
-        toggle_city_btn = gr.Button("Toggle Timișoara view")
-        gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
-        gr.Markdown("Apasă un marker pe hartă sau click pe harta statică pentru coordonate.")
+        # gr.Markdown("### 🖱️ Click pe harta statică pentru coordonate")
+        gr.Markdown("Apasă pe harta de mai jos pentru a selecta un monument și a genera muzică inspirată de acesta.")
+        toggle_city_btn = gr.Button("Toggle Timișoara / România")
         click_img = gr.Image(
             value="assets/harta_romaniei.jpg",
             elem_id="click_img",
@@ -561,7 +561,7 @@ with gr.Blocks(css=gr_css) as demo:
             show_share_button=False,
             mirror_webcam = False,
         )
-        click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2)
+        click_output = gr.Textbox(label="Coordonate click", interactive=False, lines=2, visible=False)
         monument_dropdown = gr.Dropdown(choices=monuments_list, label="Selectează monument")
         generate_btn = gr.Button("🎶 Music AI — Generează muzică")
         bridge_out = gr.HTML("", visible=False)

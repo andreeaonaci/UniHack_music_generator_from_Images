@@ -162,9 +162,12 @@ def enrich_all():
 def match_monument_by_name(name: str):
     """Caută un monument după nume (caută substring, case-insensitive)"""
     name = name.lower()
-    list_monuments = load_monuments()
+    list_monuments = load_monuments(dataset_path=DATASET_XML)
     for m in list_monuments:
         if name in m["nume"].lower():
+            return m
+    for m in load_monuments(dataset_path=TIM_DATASET_XML):
+        if name == m["nume"].lower():
             return m
     # fallback → dacă nu găsește, returnează un monument aleator
     return choice(list_monuments)
